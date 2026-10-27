@@ -1,0 +1,41 @@
+# 依赖（换设备 npm install 重装即可，不要提交）
+node_modules/
+
+# 运行产物
+run.log
+*.log
+
+# 测试临时目录
+test/.ui-test-userdata/
+
+# 系统文件
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Electron 打包输出
+dist-win*/
+dist-mac*/
+.mac-stage/
+dist-check/
+release/
+
+# 图标中间产物（icon.svg / icon.png / icon.icns 提交，iconset 是生成物）
+build/icon.iconset/
+
+# 后台结构抓取产物（含页面快照，可能夹带账号信息，不提交）
+data/probe/
+# 抓取用的 Chrome 登录 profile（含登录态，绝对不能提交）
+data/chrome-profile/
+# 用户本地配置
+data/config.json
+
+# 打包产物与测试截图
+dist/
+preview-*.png
+ui-*.png
+_full_*.png
+_t_*.png
+
+# 压测日志
+*.log.json

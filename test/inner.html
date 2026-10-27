@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>iframe 内的中控面板</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; padding: 14px; background: #fff; }
+  .pt { font-size: 13px; color: #2c3e50; margin-bottom: 10px; }
+  input, textarea { width: 100%; padding: 7px 9px; border: 1px solid #c9d3e0; border-radius: 6px; font-family: inherit; font-size: 12px; }
+  .c { border-bottom: 1px dashed #eceff5; padding: 7px 0; font-size: 12px; }
+  .nick { color: #2f6feb; margin-right: 6px; }
+</style></head>
+<body>
+  <div class="pt">这是 iframe 内部（模拟来客把中控台嵌在子框架里）</div>
+  <div id="comment-list">
+    <div class="c"><span class="nick">小鱼</span><span class="txt">怎么核销啊</span></div>
+    <div class="c"><span class="nick">阿飞</span><span class="txt">几点开门</span></div>
+    <div class="c"><span class="nick">momo</span><span class="txt">还有票吗</span></div>
+  </div>
+  <textarea id="input" rows="2" placeholder="说点什么…"></textarea>
+  <button id="send">发送</button>
+
+  <!-- 模拟抖音那种随机哈希 class，用来验证"直接填类名"的解析 -->
+  <div class="live-card-8x2f" data-index="0">
+    <span class="title-9Kd">夜间双人票</span>
+    <button class="live-buy-7Zq">讲解</button>
+  </div>
+  <div class="live-card-8x2f" data-index="1">
+    <span class="title-9Kd">夜游茶船</span>
+    <button class="live-buy-7Zq">讲解</button>
+  </div>
+</body>
+</html>

@@ -1,0 +1,84 @@
+{
+  "name": "xunyang-zhanluejian",
+  "productName": "巡洋战略舰",
+  "version": "0.10.8",
+  "description": "抖音本地生活团购直播间中控助手（自用）",
+  "main": "main.js",
+  "author": "ayuan",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "start:mac": "bash start.command",
+    "test:ui": "electron --no-sandbox test/ui-test.js",
+    "test:auto": "electron --no-sandbox test/auto-test.js",
+    "serve:test": "python3 -m http.server 8899 --bind 127.0.0.1 -d test",
+    "cfg:default": "node scripts/make-default-config.js",
+    "cfg:check": "node scripts/make-default-config.js --check",
+    "predist:mac": "npm run cfg:default && npm run cfg:check",
+    "predist:win": "npm run cfg:default && npm run cfg:check",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "37.10.3",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.ayuan.xunyang-zhanluejian",
+    "productName": "巡洋战略舰",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "guest.js",
+      "preload.js",
+      "src/**/*",
+      "data/config.default.json",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": "nsis"
+    },
+    "dmg": {
+      "title": "巡洋战略舰 ${version}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "displayLanguageSelector": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "巡洋战略舰",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    }
+  }
+}

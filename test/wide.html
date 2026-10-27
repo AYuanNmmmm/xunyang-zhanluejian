@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>适宽测试页</title>
+<style>
+  html,body{margin:0;padding:0}
+  /* 故意做成一个 1600px 固定宽的页面，用来验证「适宽」会不会真的把它缩到可见区内 */
+  body{width:1600px;height:600px;background:linear-gradient(90deg,#eef2ff,#ffffff);font:14px/1.6 -apple-system,system-ui}
+  .box{margin:24px;padding:16px 20px;background:#1f2937;color:#fff;border-radius:10px;width:900px}
+</style>
+</head>
+<body>
+  <div class="box">1600px 固定宽页面 · 适宽测试</div>
+  <div class="box">右边还有内容（超出部分不缩就看不全）</div>
+</body>
+</html>

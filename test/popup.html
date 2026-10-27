@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>直播中控（弹窗目标页）</title>
+<style>body{font-family:"Microsoft YaHei";padding:30px;background:#eef7f0}h2{color:#1e7a45}</style>
+</head>
+<body>
+  <h2>✓ 这个页面如果出现在内嵌窗口里，说明弹窗已被成功拦截</h2>
+  <p>URL: <code id="u"></code></p>
+  <p>是弹窗打开的吗（window.opener 存在）：<b id="op"></b></p>
+  <script>
+    document.getElementById('u').textContent = location.href;
+    document.getElementById('op').textContent = window.opener ? '是（仍是弹窗）' : '否（已在内嵌页面导航）';
+  </script>
+</body>
+</html>

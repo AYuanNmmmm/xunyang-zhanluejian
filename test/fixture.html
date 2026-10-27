@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>来客模拟页</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; padding: 24px; background: #f6f8fb; }
+  h2 { font-size: 16px; }
+  button { padding: 8px 14px; margin: 4px 6px 4px 0; cursor: pointer; border: 1px solid #c9d3e0; background: #fff; border-radius: 6px; }
+  .card { border: 1px solid #dfe4ec; background: #fff; border-radius: 8px; padding: 12px; margin: 10px 0; }
+  .row { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eceff5; }
+  .idx { width: 22px; height: 22px; background: #2f6feb; color: #fff; border-radius: 4px; text-align: center; line-height: 22px; font-size: 12px; }
+  iframe { width: 100%; height: 220px; border: 1px solid #dfe4ec; border-radius: 8px; background: #fff; }
+  .note { font-size: 12px; color: #8b97a8; }
+</style>
+</head>
+<body>
+  <h2>来客模拟页（测试用）</h2>
+  <p class="note">本页用于验证：① window.open 是否被拦截在内嵌页面打开；② iframe 内元素能否被拾取。</p>
+
+  <div class="card">
+    <div class="row"><span class="idx">1</span><span>双人票 · 夜间场</span><button id="btn1" onclick="alert('已讲解双人票')">讲解</button></div>
+    <div class="row"><span class="idx">2</span><span>亲子票 · 夜游</span><button onclick="alert('已讲解亲子票')">讲解</button></div>
+    <div class="row"><span class="idx">3</span><span>夜游茶船</span><button onclick="alert('已讲解茶船')">讲解</button></div>
+  </div>
+
+  <div class="card">
+    <button id="openPopup">打开直播中控（window.open）</button>
+    <button id="openNewTab">打开中控（target=_blank）</button>
+  </div>
+
+  <div class="card">
+    <p class="note">下面这块是 iframe，用来验证跨框架拾取：</p>
+    <iframe src="inner.html" id="mid"></iframe>
+  </div>
+
+  <!-- 输入注入测试（验证 CDP 点击/输入不抢鼠标也能生效） -->
+  <div class="card" id="input-test">
+    <p class="note">输入注入测试：</p>
+    <button id="clickMe" onclick="document.getElementById('clickOut').textContent = String(Number(document.getElementById('clickOut').textContent) + 1)">点我 +1</button>
+    <span id="clickOut">0</span>
+    <input id="typeBox" type="text" placeholder="输入测试" style="margin-left:12px;padding:5px 8px;border:1px solid #c9d3e0;border-radius:6px">
+    <button id="submitBox" onclick="document.getElementById('submitOut').textContent = document.getElementById('typeBox').value">提交</button>
+    <span id="submitOut"></span>
+  </div>
+
+  <!-- 滚动/视口外测试：① 内部滚动容器的最后一行 ② 整页最底部的按钮
+       真机上「链接多了以后下面的点不到」就是这两种情况，靠 reveal 滚到可见再点 -->
+  <div class="card">
+    <p class="note">内部滚动列表（60 行，最后一行在滚动区外）：</p>
+    <div id="longlist" style="max-height:150px;overflow-y:auto;border:1px solid #dfe4ec;border-radius:6px"></div>
+    <p class="note" style="margin-top:10px">整页最底部（必须滚动才看得见）：</p>
+    <button id="deepBtn" onclick="document.getElementById('deepOut').textContent = 'clicked'">底部按钮</button>
+    <span id="deepOut"></span>
+    <div style="height:900px"></div>
+  </div>
+  <script>
+    (function () {
+      var box = document.getElementById('longlist');
+      var html = '';
+      for (var i = 1; i <= 60; i++) {
+        html += '<div class="row" style="padding:5px 8px;border-bottom:1px solid #f2f4f8">'
+          + '<span class="idx">' + i + '</span><span>商品 ' + i + '</span>'
+          + '<button class="row-btn" data-i="' + i + '" id="rowBtn' + i + '">讲解</button></div>';
+      }
+      box.innerHTML = html;
+    })();
+  </script>
+
+  <!-- 模拟评论区：条目 + 悬停才出现的「置顶」（与 eos 真机同构） -->
+  <style>
+    #comment_all_tab_list_container .item-abc { position: relative; padding: 4px 2px; }
+    #comment_all_tab_list_container .item-abc .pin-btn { display: none; margin-left: 6px; font-size: 11px; }
+    #comment_all_tab_list_container .item-abc:hover .pin-btn { display: inline-block; }
+  </style>
+  <div class="card">
+    <p class="note">模拟评论列表（置顶按钮悬停后才出现）：</p>
+    <div class="comment-wrap-test">
+      <div id="comment_all_tab_list_container">
+        <div class="item-abc"><span class="item-name">观众A：</span><span class="item-content">门票怎么卖</span><span class="pin-btn">置顶</span></div>
+        <div class="item-abc"><span class="item-name">主播：</span><span class="item-content">今晚双人票限量，先到先得</span><span class="pin-btn">置顶</span>
+          <!-- 与真机同构：hover 才出现的操作图标，第 1 个图钉=置顶，第 2 个气泡=回复 -->
+          <div class="hover-button-abc">
+            <div class="icon-abc" style="display:inline-block;width:12px;height:12px"><svg width="12" height="12"></svg></div>
+            <div class="icon-abc" style="display:inline-block;width:12px;height:12px;margin-right:9px"><svg width="12" height="12"></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模拟秒杀：商品列表 + 投放秒杀表单（与 eos 真机结构同构） -->
+  <div class="card">
+    <p class="note">模拟商品卡（4 号有秒杀入口）与「投放秒杀」表单：</p>
+    <div id="live-card-list">
+      <div role="button" aria-label="card-1" style="padding:4px"><span>门票A</span></div>
+      <div role="button" aria-label="card-2" style="padding:4px"><span>门票B</span></div>
+      <div role="button" aria-label="card-3" style="padding:4px"><span>门票C</span></div>
+      <div role="button" aria-label="card-4" style="padding:4px"><span>烤肉自助</span><div class="seckill-btn-container-ZxItqb" style="display:inline-block;width:24px;height:24px">⚡</div></div>
+    </div>
+    <div id="seckill-mock" style="margin-top:8px;padding:8px;border:1px dashed #c9d3e0">
+      <label class="sk-radio"><input type="radio" name="sk-mode" checked>立即投放</label>
+      <label class="sk-radio"><input type="radio" name="sk-mode">定时投放</label>
+      <div><input class="byted-input-number-input" type="text" value="0" style="width:90px"></div>
+      <div><input class="byted-input-number-input" type="text" value="0" style="width:90px"></div>
+      <label class="sk-radio"><input type="radio" name="sk-cd" checked>关闭</label>
+      <label class="sk-radio"><input type="radio" name="sk-cd">开启</label>
+      <button id="sk-submit" disabled>提交</button>
+      <button id="sk-cancel">取消</button>
+      <!-- 已投放态才有的东西：剩余数量 + 编辑入口（剩余补充靠它） -->
+      <div id="sk-body-extra">
+        <div>剩余 <b>3</b> 件</div>
+        <div>投放库存 <b>5</b> 件 · 秒杀件数 2</div>
+        <span id="sk-edit" style="display:inline-block;width:44px;height:18px;cursor:pointer">编辑</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 自动触发一次 window.open，用于无人值守验证拦截是否生效
+    if (location.search.includes('autopopup')) {
+      setTimeout(() => { window.open('popup.html', '_blank'); }, 800);
+    }
+    document.getElementById('openPopup').onclick = () => window.open('popup.html', '_blank');
+    const skEdit = document.getElementById('sk-edit');
+    if (skEdit) skEdit.onclick = () => { skEdit.dataset.clicked = '1'; };
+    document.getElementById('openNewTab').onclick = () => {
+      const a = document.createElement('a');
+      a.href = 'popup.html'; a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# 换行符按平台固定：Windows 脚本必须 CRLF（LF 会让 cmd.exe 把命令读成乱码，双击直接打不开）
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+# macOS 脚本必须 LF
+*.command text eol=lf
+*.sh      text eol=lf

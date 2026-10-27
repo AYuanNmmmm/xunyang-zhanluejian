@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+<title>巡洋战略舰</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ 顶栏 ============ -->
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>巡洋战略舰<span class="ver" id="appVer"></span></div>
+  <div class="topbar-mid">
+    <select id="siteSelect" class="site-select" title="预设站点">
+      <option value="https://eos.douyin.com/">抖音生活服务 eos 后台</option>
+      <option value="https://life.douyin.com/">抖音生活服务商家后台</option>
+      <option value="custom">自定义地址…</option>
+    </select>
+    <input id="urlInput" class="url-input" placeholder="输入后台地址后回车" spellcheck="false">
+    <button id="btnGo" class="btn-sm">前往</button>
+  </div>
+  <div class="topbar-right">
+    <div class="zoom-ctrl" title="内嵌页面缩放">
+      <button id="zoomOut" class="btn-sm" title="缩小">－</button>
+      <button id="zoomLabel" class="btn-sm zoom-label" title="点击恢复 100%">100%</button>
+      <button id="zoomIn" class="btn-sm" title="放大">＋</button>
+      <button id="zoomFit" class="btn-sm" title="记住常用比例，一键切换">适宽</button>
+    </div>
+    <label class="switch-label" title="只记录动作、不真正点击，用来验证选择器">
+      <input type="checkbox" id="dryRun">
+      <span>试运行</span>
+    </label>
+    <span id="statusBadge" class="badge badge-idle">空闲</span>
+    <button id="btnStopAll" class="btn-stop">全部停止</button>
+  </div>
+</header>
+
+<!-- ============ 主体 ============ -->
+<main class="layout">
+
+  <!-- 左栏：功能菜单 → 运行中 → 累计统计（自上而下，都在运行日志上方） -->
+  <div class="side">
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-tab="goods"><i>①</i><span>商品</span></button>
+      <button class="nav-item" data-tab="popup"><i>②</i><span>弹讲解</span></button>
+      <button class="nav-item" data-tab="comment"><i>③</i><span>自动发评</span></button>
+      <button class="nav-item" data-tab="coupon"><i>④</i><span>发优惠券</span></button>
+      <button class="nav-item" data-tab="data"><i>⑤</i><span>实时数据</span></button>
+      <button class="nav-item" data-tab="settings"><i>⑥</i><span>设置</span></button>
+      <button class="nav-item" data-tab="selectors"><i>⑦</i><span>高级</span></button>
+    </nav>
+
+    <!-- 实时运行状态：紧贴功能菜单下方，运行日志上方 -->
+    <aside class="runpane" id="runBar"><span class="runbar-idle">空闲</span></aside>
+
+    <!-- 累计统计：由 app.js 渲染 -->
+    <section class="statsbox" id="statsBox"></section>
+  </div>
+
+  <section class="panel-wrap">
+    <section class="panel" id="panel"><!-- 由 app.js 渲染 --></section>
+  </section>
+
+  <section class="browser">
+    <div class="browser-bar">
+      <span id="pageTitle" class="page-title">未加载</span>
+      <div class="browser-tools">
+        <button id="btnBack" class="btn-icon" title="后退">‹</button>
+        <button id="btnReload" class="btn-icon" title="刷新">↻</button>
+        <button id="btnDevTools" class="btn-icon" title="打开开发者工具">⌥</button>
+
+      </div>
+    </div>
+    <div class="pick-hint" id="pickHint" hidden>
+      拾取模式：把鼠标移到目标元素上，<b>单击</b>即选中；按 <b>Esc</b> 取消。
+      <span id="pickTargetLabel"></span>
+    </div>
+    <div class="browser-views" id="browserViews">
+      <!-- 后台工作页（自动任务专用，用户看不见）：由 app.js 按需创建 webview -->
+      <div class="worker-host" id="workerHost"></div>
+      <div class="view-col" data-id="0">
+        <div class="view-col-bar">
+          <span class="col-tag">主控</span>
+          <span class="col-title" id="colTitle0">未加载</span>
+        </div>
+        <webview id="view" src="https://eos.douyin.com/livesite/live/current" partition="persist:douyin" allowpopups webpreferences="backgroundThrottling=false"></webview>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 运行日志 ============ -->
+<footer class="logwrap" id="logwrap">
+  <div class="logmain">
+    <div class="log-head">
+      <div class="log-title">运行日志 <span id="logCount">0</span></div>
+      <!-- 分功能页签：只看某一个功能的日志 -->
+      <div class="log-tabs" id="logTabs">
+        <button class="log-tab active" data-tag="all">全部</button>
+        <button class="log-tab" data-tag="popup">弹讲解</button>
+        <button class="log-tab" data-tag="comment">发评</button>
+        <button class="log-tab" data-tag="coupon">发券</button>
+        <button class="log-tab" data-tag="seckill">秒杀</button>
+        <button class="log-tab" data-tag="goods">商品</button>
+        <button class="log-tab" data-tag="sys">系统</button>
+      </div>
+      <div class="log-tools">
+        <label class="switch-label small"><input type="checkbox" id="logAutoScroll" checked><span>自动滚动</span></label>
+        <button id="btnClearLog" class="btn-sm ghost">清空</button>
+        <button id="btnExportLog" class="btn-sm ghost">导出</button>
+        <button id="btnToggleLog" class="btn-icon" title="折叠">▾</button>
+      </div>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+</footer>
+
+<!-- ===================================================================
+     页面侧自动化库：注入到内嵌网页的执行环境里运行
+     不参与本应用的 DOM
+     =================================================================== -->
+<script type="text/plain" id="tp-lib">
+(() => {
+  if (window.__TP) return;
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const rand = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
+
+  function isVisible(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return false;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') return false;
+    return true;
+  }
+
+  function norm(s) { return (s || '').replace(/\s+/g, ' ').trim(); }
+
+  // ---------- 真人操作探测 ----------
+  // 目的：自动化在后台跑的时候，真人可能正在点页面、打字、滚轮。
+  // 真人一动，机器人就应该让位（PageBus 会读这里的时间戳）。
+  // 难点：CDP 注入的事件 isTrusted 同样是 true，和真人一样无法区分 ——
+  // 所以每次注入前先 markInject(ms)，在窗口期内的可信事件一律算"自己发的"。
+  let injectUntil = 0;
+  let humanAt = 0;
+  let humanKind = '';
+  function markInject(ms) { injectUntil = Date.now() + Math.max(200, Number(ms) || 1200); }
+  function humanInfo() {
+    return { age: humanAt ? Date.now() - humanAt : 1e9, kind: humanKind, inject: Date.now() < injectUntil };
+  }
+  (function installHumanWatch() {
+    const types = ['mousedown', 'keydown', 'wheel', 'touchstart', 'pointerdown'];
+    const on = (e) => {
+      if (!e.isTrusted) return;
+      if (Date.now() < injectUntil) return;
+      humanAt = Date.now();
+      humanKind = e.type;
+    };
+    types.forEach((t) => { try { document.addEventListener(t, on, true); } catch (e) {} });
+  })();
+
+  function findByText(want, root) {
+    const scope = root || document.body || document;
+    const nodes = scope.querySelectorAll('*');
+    const exact = [];
+    const partial = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const t = norm(n.textContent);
+      if (!t) continue;
+      if (t === want) exact.push(n);
+      else if (t.indexOf(want) >= 0) partial.push(n);
+    }
+    const best = (arr) => {
+      if (!arr.length) return null;
+      arr.sort((a, b) => (a.textContent.length - b.textContent.length) || (a.childElementCount - b.childElementCount));
+      for (const el of arr) if (isVisible(el)) return el;
+      return arr[0];
+    };
+    return best(exact) || best(partial);
+  }
+
+  // ---------- 选择器解析 ----------
+  // 支持一行一个候选（从上到下依次尝试），也支持用 || 分隔
+  // 每个候选可以是：CSS / .类名 / 裸类名（自动补点）/ #id / text=文案 / class=片段 / xpath=表达式 / 以 / 开头的 XPath
+  const TAGS = {
+    a: 1, abbr: 1, article: 1, aside: 1, audio: 1, b: 1, body: 1, br: 1, button: 1, canvas: 1,
+    div: 1, dl: 1, dt: 1, dd: 1, em: 1, fieldset: 1, figure: 1, footer: 1, form: 1, h1: 1, h2: 1,
+    h3: 1, h4: 1, h5: 1, h6: 1, header: 1, hr: 1, i: 1, iframe: 1, img: 1, input: 1, label: 1,
+    li: 1, main: 1, nav: 1, ol: 1, option: 1, p: 1, pre: 1, s: 1, section: 1, select: 1,
+    small: 1, span: 1, strong: 1, svg: 1, table: 1, tbody: 1, td: 1, textarea: 1, th: 1,
+    thead: 1, tr: 1, u: 1, ul: 1, video: 1
+  };
+
+  function normalizeOne(s) {
+    let t = String(s).trim();
+    if (!t) return '';
+    // 允许直接粘 DevTools 里复制的整段属性：class="live-btn primary"
+    const mAttr = t.match(/^class\s*=\s*["']([^"']+)["']$/i);
+    if (mAttr) t = 'class=' + mAttr[1];
+    if (/^(text|class|css|xpath|id)=/i.test(t)) {
+      return t.replace(/^(TEXT|CLASS|CSS|XPATH|ID)=/, (m) => m.toLowerCase());
+    }
+    if (t.charAt(0) === '/' ) return 'xpath=' + t;
+    if ('.#[>*:'.indexOf(t.charAt(0)) >= 0) return t;
+    if (/^[A-Za-z][\w-]*$/.test(t)) return TAGS[t.toLowerCase()] ? t : '.' + t;
+    return t;
+  }
+
+  function parseSel(selector) {
+    if (!selector) return [];
+    const out = [];
+    String(selector).split(/\r?\n|\|\|/).forEach((p) => {
+      const n = normalizeOne(p);
+      if (n && out.indexOf(n) < 0) out.push(n);
+    });
+    return out;
+  }
+
+  function xpathFind(xp, root) {
+    try {
+      const doc = (root && root.ownerDocument) || document;
+      const r = doc.evaluate(xp, root || doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+      return r.singleNodeValue || null;
+    } catch (e) { return null; }
+  }
+
+  function classFind(cls, root, all) {
+    const scope = root || document;
+    const raw = String(cls).trim().replace(/^\.+/, '');
+    if (!raw) return all ? [] : null;
+    // 先按完整类名精确匹配（空格分隔 = 多个类同时具备）
+    const exact = '.' + raw.split(/\s+/).filter(Boolean).join('.');
+    let arr = [];
+    try { arr = Array.from(scope.querySelectorAll(exact)); } catch (e) { arr = []; }
+    if (arr.length) return all ? arr : arr[0];
+    // 再按类名片段模糊匹配（应对 class 哈希后缀变动，如 live-btn-a1b2）
+    const want = raw.toLowerCase();
+    const fuzzy = [];
+    let nodes = [];
+    try { nodes = scope.querySelectorAll('[class]'); } catch (e) { return all ? [] : null; }
+    for (let i = 0; i < nodes.length && fuzzy.length < 400; i++) {
+      const cn = nodes[i].getAttribute('class') || '';
+      if (cn.toLowerCase().indexOf(want) >= 0) fuzzy.push(nodes[i]);
+    }
+    if (all) return fuzzy;
+    for (const el of fuzzy) if (isVisible(el)) return el;
+    return fuzzy[0] || null;
+  }
+
+  function resolveOne(s, root) {
+    if (!s) return null;
+    if (s.indexOf('xpath=') === 0) return xpathFind(s.slice(6), root);
+    if (s.indexOf('text=') === 0) return findByText(s.slice(5).trim(), root);
+    if (s.indexOf('class=') === 0) return classFind(s.slice(6), root, false);
+    if (s.indexOf('id=') === 0) {
+      try { return (root || document).querySelector('#' + s.slice(3).trim()); } catch (e) { return null; }
+    }
+    if (s.indexOf('css=') === 0) s = s.slice(4);
+    try { return (root || document).querySelector(s); } catch (e) { return null; }
+  }
+
+  function resolveAllOne(s, root) {
+    if (!s) return [];
+    if (s.indexOf('xpath=') === 0) {
+      const el = xpathFind(s.slice(6), root);
+      return el ? [el] : [];
+    }
+    if (s.indexOf('text=') === 0) {
+      const el = findByText(s.slice(5).trim(), root);
+      return el ? [el] : [];
+    }
+    if (s.indexOf('class=') === 0) return classFind(s.slice(6), root, true);
+    if (s.indexOf('css=') === 0) s = s.slice(4);
+    try { return Array.from((root || document).querySelectorAll(s)); } catch (e) { return []; }
+  }
+
+  function resolve(selector, root) {
+    const list = parseSel(selector);
+    for (const s of list) {
+      const el = resolveOne(s, root);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function resolveAll(selector, root) {
+    const list = parseSel(selector);
+    for (const s of list) {
+      const arr = resolveAllOne(s, root);
+      if (arr.length) return arr;
+    }
+    return [];
+  }
+
+  // 元素 → 最稳的几种写法（data-e2e / id 优先，其次文本）
+  function attrSel(el) {
+    if (!el || !el.getAttribute) return '';
+    const e2e = el.getAttribute('data-e2e') || el.getAttribute('data-testid') || el.getAttribute('data-spm');
+    if (e2e) {
+      const name = el.getAttribute('data-e2e') ? 'data-e2e' : (el.getAttribute('data-testid') ? 'data-testid' : 'data-spm');
+      return el.tagName.toLowerCase() + '[' + name + '="' + e2e + '"]';
+    }
+    if (el.id && /^[A-Za-z][\w-]*$/.test(el.id)) return '#' + el.id;
+    return '';
+  }
+
+  function clickable(el) {
+    let cur = el, depth = 0;
+    while (cur && cur !== document.body && depth < 6) {
+      const tag = cur.tagName ? cur.tagName.toLowerCase() : '';
+      const role = cur.getAttribute && cur.getAttribute('role');
+      if (tag === 'button' || tag === 'a' || role === 'button' ||
+          (cur.onclick) || (cur.getAttribute && cur.getAttribute('tabindex') === '0')) return cur;
+      cur = cur.parentElement; depth++;
+    }
+    return el;
+  }
+
+  function fire(el) {
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const base = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy, button: 0 };
+    const seq = ['pointerover', 'mouseover', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+    for (const type of seq) {
+      let ev;
+      if (type.indexOf('pointer') === 0 && window.PointerEvent) ev = new PointerEvent(type, base);
+      else ev = new MouseEvent(type, base);
+      el.dispatchEvent(ev);
+    }
+  }
+
+  // ---------- 坐标定位（配合主进程发真实鼠标事件） ----------
+  // 返回元素中心的视口坐标；元素在 iframe 里就逐层加上外框偏移，统一换算到 webview 坐标系。
+  // 注意：这里只测量，不滚动 —— 滚动统一交给 revealEl。
+  // 旧版用 el.scrollIntoView({block:'center'})，一旦页面有 scroll-behavior:smooth
+  // 就是异步动画，紧接着量到的还是旧坐标，点击会打偏。
+  function centerOf(el) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return null;
+    const lx = r.left + r.width / 2;
+    const ly = r.top + r.height / 2;
+    let x = lx;
+    let y = ly;
+    try {
+      let win = window;
+      while (win.frameElement) {
+        const fr = win.frameElement.getBoundingClientRect();
+        x += fr.left;
+        y += fr.top;
+        win = win.parent;
+      }
+    } catch (e) { /* 跨域框架按主坐标系近似 */ }
+    return { x: Math.round(x), y: Math.round(y), lx: Math.round(lx), ly: Math.round(ly), w: Math.round(r.width), h: Math.round(r.height) };
+  }
+
+  // 点是否落在当前视口内。中控台是 1600 宽固定布局，webview 窄的时候右侧元素会跑到视口外，
+  // 这时注入的鼠标事件点在空处 —— 必须显式发现并处理，否则表现为「点了没反应」。
+  function inViewport(x, y) {
+    return x >= 0 && y >= 0 && x <= window.innerWidth - 1 && y <= window.innerHeight - 1;
+  }
+
+  // 在「元素所在的那个文档」里，把它从所有滚动容器中滚到看得见的位置。
+  // 直接改 scrollTop/scrollLeft —— 同步生效、没有平滑动画，量出来就是最终坐标。
+  function revealInDoc(el) {
+    const doc = el.ownerDocument;
+    const win = doc.defaultView || window;
+    const boxes = [];
+    let node = el.parentElement;
+    while (node && node !== doc.documentElement) {
+      let cs = null;
+      try { cs = win.getComputedStyle(node); } catch (e) { cs = null; }
+      if (cs) {
+        const oy = /(auto|scroll|overlay)/.test(cs.overflowY);
+        const ox = /(auto|scroll|overlay)/.test(cs.overflowX);
+        if ((oy && node.scrollHeight > node.clientHeight + 2) || (ox && node.scrollWidth > node.clientWidth + 2)) boxes.push(node);
+      }
+      node = node.parentElement;
+    }
+    boxes.push(doc.scrollingElement || doc.documentElement);
+
+    let moved = 0;
+    for (let i = 0; i < boxes.length; i++) {
+      const box = boxes[i];
+      const isDoc = box === doc.scrollingElement || box === doc.documentElement;
+      let vp;
+      if (isDoc) {
+        vp = { top: 0, left: 0, right: win.innerWidth || doc.documentElement.clientWidth, bottom: win.innerHeight || doc.documentElement.clientHeight };
+      } else {
+        vp = box.getBoundingClientRect();
+      }
+      const r = el.getBoundingClientRect();
+      const pad = 6;
+      let dy = 0;
+      let dx = 0;
+      // 只滚「刚好够看见」的最小距离（不是居中），滚得越少对真人干扰越小
+      if (r.bottom > vp.bottom - pad) dy = Math.min(r.bottom - (vp.bottom - pad), Math.max(0, r.top - vp.top - pad));
+      else if (r.top < vp.top + pad) dy = r.top - (vp.top + pad);
+      if (r.right > vp.right - pad) dx = Math.min(r.right - (vp.right - pad), Math.max(0, r.left - vp.left - pad));
+      else if (r.left < vp.left + pad) dx = r.left - (vp.left + pad);
+      try {
+        if (dy) { box.scrollTop = Math.max(0, box.scrollTop + dy); moved++; }
+        if (dx) { box.scrollLeft = Math.max(0, box.scrollLeft + dx); moved++; }
+      } catch (e) {}
+    }
+    return moved;
+  }
+
+  // 递归处理 iframe 链：元素所在文档滚完后，iframe 本身在父文档里也可能在视口外
+  function revealEl(el) {
+    let node = el;
+    let guard = 0;
+    let moved = 0;
+    while (node && guard++ < 10) {
+      try { moved += revealInDoc(node); } catch (e) {}
+      const doc = node.ownerDocument;
+      const win = doc && doc.defaultView;
+      let fe = null;
+      try { fe = win && win.frameElement; } catch (e) { fe = null; }
+      if (!fe) break;
+      node = fe;
+    }
+    return moved;
+  }
+
+  // 测量 + 必要时滚到可见（尽量两次内解决）
+  function measureVisible(el) {
+    let c = centerOf(el);
+    if (!c) return null;
+    for (let i = 0; i < 3 && !inViewport(c.lx, c.ly); i++) {
+      const moved = revealEl(el);
+      const c2 = centerOf(el);
+      if (c2) c = c2;
+      if (!moved) break;   // 滚不动了（页面不允许滚 / 元素比视口还大），交给调用方决定
+    }
+    return c;
+  }
+
+  // 老名字保留（locate / locateIn 里用过）
+  function revealAndMeasure(el) { return measureVisible(el); }
+
+  // 对外：把某个选择器对应的元素滚到可见，返回最新坐标
+  function reveal(selector) {
+    const el = resolve(selector);
+    if (!el) return { ok: false, reason: 'not-found', selector: selector };
+    const t = clickable(el);
+    const moved = revealEl(t);
+    const c = centerOf(t);
+    if (!c) return { ok: false, reason: 'invisible' };
+    return { ok: true, moved: moved, x: c.x, y: c.y, inView: inViewport(c.lx, c.ly), vw: window.innerWidth, vh: window.innerHeight };
+  }
+
+  // 同上，但目标在某个容器内部（商品卡里的小按钮）
+  function revealIn(containerSelector, innerSelector) {
+    const boxes = resolveAll(containerSelector);
+    if (!boxes.length) return { ok: false, reason: 'container-not-found' };
+    for (const box of boxes) {
+      let inner = resolve(innerSelector, box);
+      if (!inner && String(innerSelector).indexOf('text=') === 0) inner = findByText(String(innerSelector).slice(5).trim(), box);
+      if (!inner) continue;
+      const t = clickable(inner);
+      const moved = revealEl(t);
+      const c = centerOf(t);
+      if (!c) continue;
+      return { ok: true, moved: moved, x: c.x, y: c.y, inView: inViewport(c.lx, c.ly), vw: window.innerWidth, vh: window.innerHeight };
+    }
+    return { ok: false, reason: 'inner-not-found' };
+  }
+
+  // 长列表懒加载：商品多了以后，靠后的卡片一开始根本不在 DOM 里，需要滚到底把它加载出来
+  async function loadAll(containerSelector, rounds, waitMs) {
+    const cont = resolve(containerSelector);
+    if (!cont) return { ok: false, reason: 'container-not-found' };
+    let sc = cont;
+    for (let i = 0; i < 6 && sc && sc !== document.body; i++) {
+      const cs = getComputedStyle(sc);
+      if (/(auto|scroll)/.test(cs.overflowY) && sc.scrollHeight > sc.clientHeight + 4) break;
+      sc = sc.parentElement;
+    }
+    const countNow = () => cont.querySelectorAll('*').length;
+    let prev = -1;
+    let n = countNow();
+    let steps = 0;
+    for (let r = 0; r < (Number(rounds) || 10) && n !== prev; r++) {
+      prev = n;
+      try { if (sc) sc.scrollTop = sc.scrollHeight; } catch (e) {}
+      await sleep(Number(waitMs) || 500);
+      n = countNow();
+      steps++;
+    }
+    return { ok: true, steps: steps, nodes: n, scrolled: !!(sc && sc !== document.body) };
+  }
+
+  // 检查中心点有没有被别的浮层盖住（弹窗、遮罩）——盖住就别点，免得点错东西
+  function coveredBy(el, lx, ly) {
+    try {
+      const hit = document.elementFromPoint(lx, ly);
+      if (!hit) return 'nothing';
+      if (hit === el || el.contains(hit) || hit.contains(el)) return '';
+      const cs = getComputedStyle(hit);
+      const cls = String(hit.getAttribute('class') || '').slice(0, 40);
+      return (hit.tagName || '?') + (cls ? '.' + cls : '') + (cs.position === 'fixed' ? '(浮层)' : '');
+    } catch (e) { return ''; }
+  }
+
+  function locate(selector, root) {
+    const el = resolve(selector, root);
+    if (!el) return { ok: false, reason: 'not-found', selector: selector };
+    const t = clickable(el);
+    const c = revealAndMeasure(t);
+    if (!c) return { ok: false, reason: 'invisible', selector: selector };
+    if (!inViewport(c.lx, c.ly)) {
+      return { ok: false, reason: 'out-of-view', x: c.lx, y: c.ly, vw: window.innerWidth, vh: window.innerHeight, selector: selector };
+    }
+    const cov = coveredBy(t, c.lx, c.ly);
+    if (cov) return { ok: false, reason: 'covered', by: cov, selector: selector };
+    return { ok: true, x: c.x, y: c.y, tag: t.tagName, text: norm(t.textContent).slice(0, 40) };
+  }
+
+  function locateIn(containerSelector, innerSelector) {
+    const boxes = resolveAll(containerSelector);
+    if (!boxes.length) return { ok: false, reason: 'container-not-found' };
+    for (const box of boxes) {
+      let inner = resolve(innerSelector, box);
+      if (!inner && String(innerSelector).indexOf('text=') === 0) inner = findByText(String(innerSelector).slice(5).trim(), box);
+      if (!inner) continue;
+      const t = clickable(inner);
+      const c = revealAndMeasure(t);
+      if (!c) continue;
+      if (!inViewport(c.lx, c.ly)) {
+        return { ok: false, reason: 'out-of-view', x: c.lx, y: c.ly, vw: window.innerWidth, vh: window.innerHeight };
+      }
+      const cov = coveredBy(t, c.lx, c.ly);
+      if (cov) return { ok: false, reason: 'covered', by: cov };
+      return { ok: true, x: c.x, y: c.y, tag: t.tagName, text: norm(t.textContent).slice(0, 40) };
+    }
+    return { ok: false, reason: 'inner-not-found' };
+  }
+
+  // 读卡片里按钮的当前文案（判断是否「讲解中」）。只看文本，不受遮挡影响
+  function textIn(containerSelector, innerSelector) {
+    const boxes = resolveAll(containerSelector);
+    if (!boxes.length) return { ok: false, reason: 'container-not-found' };
+    const box = boxes[0];
+    let inner = resolve(innerSelector, box);
+    if (!inner && String(innerSelector).indexOf('text=') === 0) inner = findByText(String(innerSelector).slice(5).trim(), box);
+    if (!inner) return { ok: false, reason: 'inner-not-found' };
+    const t = clickable(inner);
+    return { ok: true, text: norm(t.textContent).slice(0, 40), cls: String(t.getAttribute('class') || '').slice(0, 80) };
+  }
+
+  // 关掉挡路的弹窗 / 浮层。返回有没有找到并点掉
+  function closeAnyPopup() {
+    const words = ['关闭', '我知道了', '知道了', '以后再说', '暂不处理', '取消', '跳过'];
+    for (const w of words) {
+      const el = findByText(w);
+      if (el && isVisible(el)) {
+        const t = clickable(el);
+        fire(t);
+        return { ok: true, how: 'text', target: w };
+      }
+    }
+    // 纯图标关闭按钮（右上角 ×）通常只有 aria-label 或 close 类名
+    const icons = [
+      '[aria-label="关闭"]', '[aria-label="close"]', '[title="关闭"]',
+      '[class*="close"]', '[class*="Close"]'
+    ];
+    for (const s of icons) {
+      let el = null;
+      try { el = document.querySelector(s); } catch (e) { el = null; }
+      if (el && isVisible(el)) {
+        fire(clickable(el));
+        return { ok: true, how: 'icon', target: s };
+      }
+    }
+    return { ok: false, how: 'none' };
+  }
+
+  function click(selector, root) {    const el = resolve(selector, root);
+    if (!el) return { ok: false, reason: 'not-found', selector };
+    const t = clickable(el);
+    try { t.scrollIntoView({ block: 'center', inline: 'center' }); } catch (e) {}
+    fire(t);
+    const r = t.getBoundingClientRect();
+    return { ok: true, tag: t.tagName, text: norm(t.textContent).slice(0, 40), rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)] };
+  }
+
+  function clickIn(containerSelector, innerSelector) {
+    const box = resolveAll(containerSelector);
+    if (!box.length) return { ok: false, reason: 'container-not-found' };
+    for (const c of box) {
+      const inner = resolve(innerSelector, c) || (innerSelector.indexOf('text=') === 0 ? findByText(innerSelector.slice(5).trim(), c) : null);
+      if (inner) {
+        const t = clickable(inner);
+        try { t.scrollIntoView({ block: 'center' }); } catch (e) {}
+        fire(t);
+        return { ok: true, text: norm(t.textContent).slice(0, 40) };
+      }
+    }
+    return { ok: false, reason: 'inner-not-found' };
+  }
+
+  function setNativeValue(el, value) {
+    const proto = (el.tagName === 'TEXTAREA') ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (desc && desc.set) desc.set.call(el, value);
+    else el.value = value;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function focusEl(el) {
+    try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+    try { el.focus(); } catch (e) {}
+    try {
+      const r = el.getBoundingClientRect();
+      const mk = (t) => new MouseEvent(t, { bubbles: true, clientX: r.left + 5, clientY: r.top + 5 });
+      el.dispatchEvent(mk('mousedown')); el.dispatchEvent(mk('mouseup')); el.dispatchEvent(mk('click'));
+    } catch (e) {}
+  }
+
+  async function type(selector, text, opts) {
+    opts = opts || {};
+    const el = resolve(selector);
+    if (!el) return { ok: false, reason: 'not-found', selector };
+    focusEl(el);
+    const isCE = !!el.isContentEditable;
+    if (opts.clear !== false) {
+      if (isCE) { el.textContent = ''; }
+      else setNativeValue(el, '');
+    }
+    const min = opts.min || 55, max = opts.max || 175;
+    const chars = Array.from(String(text));
+    for (const ch of chars) {
+      if (isCE) {
+        document.execCommand('insertText', false, ch);
+      } else {
+        setNativeValue(el, (el.value || '') + ch);
+      }
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: ch, bubbles: true }));
+      el.dispatchEvent(new KeyboardEvent('keyup', { key: ch, bubbles: true }));
+      await sleep(rand(min, max));
+      if (opts.microPauseChance && Math.random() < opts.microPauseChance) await sleep(rand(160, 420));
+    }
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return { ok: true, value: isCE ? norm(el.textContent) : el.value };
+  }
+
+  async function pressEnter(selector) {
+    const el = resolve(selector) || document.activeElement;
+    if (!el) return { ok: false };
+    for (const type of ['keydown', 'keypress', 'keyup']) {
+      el.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    }
+    return { ok: true };
+  }
+
+  function readList(itemSelector, textSelector, userSelector, limit) {
+    const items = resolveAll(itemSelector);
+    const out = [];
+    const max = Math.min(items.length, limit || 50);
+    // 关键：从「末尾」往前读最新的 N 条。评论区新评论是追加在列表末尾的，
+    // 如果从头读前 N 条（旧评论），一旦评论数超过 limit，最新的评论就永远读不到，
+    // 回评会看起来「失效」。这里改成倒序读最新的一批。
+    for (let k = 0; k < max; k++) {
+      const i = items.length - 1 - k;
+      if (i < 0) break;
+      const box = items[i];
+      const textEl = textSelector ? (resolve(textSelector, box) || (textSelector.indexOf('text=') === 0 ? null : null)) : box;
+      const userEl = userSelector ? resolve(userSelector, box) : null;
+      const text = norm((textEl || box).textContent);
+      const user = userEl ? norm(userEl.textContent) : '';
+      if (!text) continue;
+      out.push({ i, text: text.slice(0, 200), user: user.slice(0, 40) });
+    }
+    return out.reverse();   // 恢复成从旧到新的顺序，回评去重/规则匹配不挑顺序
+  }
+
+  function count(selector) { return resolveAll(selector).length; }
+
+  // ---------- 商品列表抓取 ----------
+  // 后台商品数量不固定，列表可能有懒加载，这里滚到底直到数量不再增长，再回顶部
+  function cardName(card) {
+    const bad = /^[¥￥\d]|^(已售|曝光|点击|支付|销售|讲解中|取消讲解|讲解)$/;
+    let best = '';
+    const nodes = card.querySelectorAll('*');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      if (el.children.length) continue;
+      const t = norm(el.textContent);
+      if (t.length < 4 || t.length > 60) continue;
+      if (bad.test(t)) continue;
+      if (!best) best = t;
+    }
+    return best;
+  }
+
+  async function goodsList(opts) {
+    opts = opts || {};
+    const rounds = Number(opts.rounds) || 8;
+    const waitMs = Number(opts.waitMs) || 700;
+    const cont = document.querySelector('#live-card-list') || resolve('class=live-card-list');
+    if (!cont) return { ok: false, reason: 'no-card-list', items: [] };
+
+    // 找真正能滚的祖先
+    let sc = cont;
+    for (let i = 0; i < 6 && sc && sc !== document.body; i++) {
+      const cs = getComputedStyle(sc);
+      if (/(auto|scroll)/.test(cs.overflowY) && sc.scrollHeight > sc.clientHeight + 4) break;
+      sc = sc.parentElement;
+    }
+
+    const countNow = () => cont.querySelectorAll('div[role="button"][aria-label]').length;
+    let prev = -1;
+    let n = countNow();
+    let scrolled = 0;
+    for (let r = 0; r < rounds && n !== prev; r++) {
+      prev = n;
+      try { if (sc) { sc.scrollTop = sc.scrollHeight; scrolled++; } } catch (e) {}
+      await sleep(waitMs);
+      n = countNow();
+    }
+    try { if (sc) sc.scrollTop = 0; } catch (e) {}
+
+    const cards = Array.from(cont.querySelectorAll('div[role="button"][aria-label]'));
+    const items = cards.map((c, i) => {
+      const aria = c.getAttribute('aria-label') || '';
+      const id = aria.split('--')[0] || aria;
+      return { i: i + 1, name: cardName(c), aria: aria, goodsId: id };
+    }).filter((x) => x.name || x.goodsId);
+
+    return { ok: items.length > 0, count: items.length, scrolled: scrolled, items: items };
+  }
+
+  function probe(selector) {
+    const list = parseSel(selector);
+    if (!list.length) return { found: false, tried: 0, reason: 'empty-selector' };
+    for (let i = 0; i < list.length; i++) {
+      const el = resolveOne(list[i]);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      const cn = (el.getAttribute && el.getAttribute('class')) || '';
+      return {
+        found: true,
+        tag: el.tagName,
+        text: norm(el.textContent).slice(0, 60),
+        cls: String(cn).slice(0, 80),
+        visible: isVisible(el),
+        rect: [Math.round(r.width), Math.round(r.height)],
+        matched: list[i],
+        matchedIndex: i,
+        tried: list.length
+      };
+    }
+    return { found: false, tried: list.length, candidates: list };
+  }
+
+  // 按评论内容定位，并在该评论容器内点「回复」，然后输入并发送
+  async function replyTo(o) {
+    o = o || {};
+    const boxes = resolveAll(o.itemSel);
+    if (!boxes.length) return { ok: false, reason: 'container-not-found' };
+
+    for (const box of boxes) {
+      const tEl = o.textSel ? resolve(o.textSel, box) : box;
+      const uEl = o.userSel ? resolve(o.userSel, box) : null;
+      const t = norm((tEl || box).textContent).slice(0, 200);
+      const u = uEl ? norm(uEl.textContent).slice(0, 40) : '';
+      if (t !== o.matchText) continue;
+      if (o.matchUser && u !== o.matchUser) continue;
+
+      if (o.replyBtnSel) {
+        const btn = resolve(o.replyBtnSel, box);
+        if (btn) { fire(clickable(btn)); await sleep(rand(180, 420)); }
+      }
+
+      const input = resolve(o.inputSel);
+      if (!input) return { ok: false, reason: 'input-not-found' };
+
+      const prefix = (o.replyBtnSel || !u) ? '' : ('@' + u + ' ');
+      const res = await type(o.inputSel, prefix + o.replyText, { min: o.min, max: o.max, microPauseChance: 0.06 });
+      if (!res.ok) return res;
+
+      if (o.sendSel) return click(o.sendSel);
+      return await pressEnter(o.inputSel);
+    }
+    return { ok: false, reason: 'comment-not-found' };
+  }
+
+  // ---------- 元素拾取 ----------
+  let picking = false, picked = null, hoverEl = null, prevOutline = '';
+
+  function cssPath(el) {
+    const parts = [];
+    let cur = el, depth = 0;
+    while (cur && cur.nodeType === 1 && cur !== document.body && depth < 8) {
+      if (cur.id && /^[A-Za-z][\w-]*$/.test(cur.id)) { parts.unshift('#' + cur.id); break; }
+      const attrs = cur.attributes || [];
+      let marked = null;
+      for (let i = 0; i < attrs.length; i++) {
+        if (/^data-(e2e|test|qa|spm|id|key|index|type)/i.test(attrs[i].name)) { marked = attrs[i]; break; }
+      }
+      if (marked) {
+        parts.unshift(cur.tagName.toLowerCase() + '[' + marked.name + '="' + marked.value + '"]');
+        break;
+      }
+      let part = cur.tagName.toLowerCase();
+      const p = cur.parentElement;
+      if (p) {
+        const same = Array.from(p.children).filter(c => c.tagName === cur.tagName);
+        if (same.length > 1) part += ':nth-of-type(' + (same.indexOf(cur) + 1) + ')';
+      }
+      parts.unshift(part);
+      cur = cur.parentElement;
+      depth++;
+    }
+    return parts.join(' > ');
+  }
+
+  function onMove(e) {
+    if (!picking) return;
+    const el = e.target;
+    if (!el || el === document.body || el === hoverEl) return;
+    if (hoverEl) hoverEl.style.outline = prevOutline;
+    hoverEl = el;
+    prevOutline = el.style.outline;
+    el.style.outline = '2px solid #2f6feb';
+  }
+
+  function firstClassSel(el) {
+    const cn = (el.getAttribute && el.getAttribute('class')) || '';
+    const first = cn.split(/\s+/).filter(Boolean)[0];
+    if (!first) return '';
+    try {
+      const n = document.querySelectorAll('.' + CSS.escape(first)).length;
+      return (n >= 1 && n <= 8) ? '.' + first : '';
+    } catch (e) { return ''; }
+  }
+
+  function onClick(e) {
+    if (!picking) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.target;
+    const text = norm(el.textContent);
+    const t = clickable(el);
+    picked = {
+      selector: cssPath(el),
+      attrSelector: attrSel(el),
+      classSelector: firstClassSel(t) || firstClassSel(el),
+      text: text.slice(0, 60),
+      tag: el.tagName,
+      textSelector: text && text.length <= 24 ? 'text=' + text : ''
+    };
+    stopPick();
+  }
+
+  function onKey(e) { if (e.key === 'Escape') { picked = null; stopPick(); } }
+
+  function startPick() {
+    picking = true; picked = null;
+    document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    document.body.style.cursor = 'crosshair';
+    return true;
+  }
+
+  function stopPick() {
+    picking = false;
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKey, true);
+    if (hoverEl) { hoverEl.style.outline = prevOutline; hoverEl = null; }
+    if (document.body) document.body.style.cursor = '';
+  }
+
+  // ---------- 页面元素扫描 ----------
+  // 把当前页面里像"能点 / 能输入"的元素列出来，附带建议写法。
+  // 没进直播间也能扫后台其它页面，用来确认 class 名该怎么写。
+  function scan(limit) {
+    const max = limit || 150;
+    const q = 'button,a,[role="button"],input,textarea,select,[contenteditable="true"],' +
+      '[class*="btn"],[class*="Btn"],[class*="button"],[class*="Button"],[class*="tab"],[class*="item"],[class*="card"]';
+    let nodes = [];
+    try { nodes = document.querySelectorAll(q); } catch (e) { return []; }
+    const out = [];
+    const seen = {};
+    for (let i = 0; i < nodes.length && out.length < max; i++) {
+      const el = nodes[i];
+      if (!isVisible(el)) continue;
+      const tag = el.tagName.toLowerCase();
+      const isField = tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+      const text = norm(el.textContent).slice(0, 30);
+      if (!isField && !text) continue;
+      if (!isField && text.length > 30) continue;
+      const cn = el.getAttribute('class') || '';
+      const key = tag + '|' + cn + '|' + text;
+      if (seen[key]) continue;
+      seen[key] = 1;
+
+      const cand = [];
+      const push = (v) => { if (v && cand.indexOf(v) < 0) cand.push(v); };
+      push(attrSel(el));
+      if (tag === 'input' || tag === 'textarea' || el.isContentEditable) {
+        if (el.getAttribute('placeholder')) push(tag + '[placeholder="' + el.getAttribute('placeholder') + '"]');
+      }
+      if (text && text.length <= 12) push('text=' + text);
+      if (cn) {
+        const first = cn.split(/\s+/).filter(Boolean)[0];
+        if (first) push('.' + first);
+      }
+      push(cssPath(el));
+
+      out.push({
+        tag,
+        text,
+        cls: String(cn).slice(0, 90),
+        field: isField,
+        selector: cand[0],
+        candidates: cand.slice(0, 3)
+      });
+    }
+    return out;
+  }
+
+  // ---------- 优惠券 ----------
+  // 真机结构（2026-10-21）：营销工具卡「优惠券」→ 抽屉 .okee-current-live-drawer-dialog，
+  // 表格列：优惠券名称/状态/创建人/满减额度/总库存/可用库存/优惠券ID/投放ID/操作(发放优惠券)。
+  // 点「发放优惠券」→ 弹窗：数量 10张/50张/100张/500张/1000张(库存不足会禁用)/自定义/全部库存
+  //                  + 时长 1/3/5/10分钟/自定义 + 取消/确定发放。
+  // 读抽屉里的券列表（先由调用方点开「优惠券」入口）。返回每行的文案 + 发放按钮坐标。
+  // 券表格的行：不依赖具体的抽屉/弹窗类名（后台改过好几次），
+  // 只认「这一行里有『发放优惠券』按钮」——这是唯一稳定的特征。
+  function couponRows() {
+    const n1 = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    let best = [];
+    let nodes = [];
+    try { nodes = document.querySelectorAll('tr'); } catch (e) { nodes = []; }
+    const rows = [];
+    Array.prototype.forEach.call(nodes, (tr) => {
+      const btns = Array.from(tr.querySelectorAll('button'));
+      const btn = btns.find((b) => /发放优惠券/.test(n1(b.textContent)));
+      if (!btn) return;
+      const cells = Array.from(tr.children).map((c) => n1(c.textContent));
+      if (cells.length < 4) return;
+      rows.push({ tr: tr, btn: btn, cells: cells });
+    });
+    if (rows.length > best.length) best = rows;
+    return best;
+  }
+
+  function couponPanelRows() {
+    const rows = couponRows();
+    const out = rows.map((x) => {
+      const cells = x.cells;
+      // 关键：表格可能在 iframe 里，必须换算成顶层视口坐标，否则点不中
+      const abs = absCenterOf(x.btn) || (() => { const r = x.btn.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })();
+      return {
+        name: String(cells[0] || '').replace(/复制ID$/, ''),
+        status: cells[1] || '',
+        creator: cells[2] || '',
+        value: cells[3] || '',
+        stock: cells[4] || '',
+        avail: cells[5] || '',
+        id: cells[6] || '',
+        kind: /折/.test(cells[3] || '') ? 'discount' : (/元/.test(cells[3] || '') ? 'cash' : 'full'),
+        btn: abs
+      };
+    });
+    return { ok: out.length > 0, count: out.length, rows: out, reason: out.length ? '' : 'no-row' };
+  }
+
+  // ---------- 接口直调（不操作画面） ----------
+  // 实测（2026-10-22）：页面自己的 window.fetch 被 secsdk 包装过，
+  // 在页面上下文里 fetch 后台接口，a_bogus 签名会自动补上 ——
+  // 效果和"点按钮"发出的请求完全一样，但不碰画面、不占输入框。
+  // 目前只有发评论验证过；讲解/发券走长连接，抓不到 HTTP。
+  const ID_CACHE = { at: 0, roomId: '', userId: '' };
+
+  // 页面自己的请求里就带着 room_id（中控台一直在轮询），装个"听筒"偷看一眼。
+  // 注意：XHR 不会进 performance 资源列表，只能从 XHR/fetch 的 URL 上截。
+  // 必须用 window 上的标记做幂等：tp-lib 会被反复注入（每次调用都可能重新注入一次），
+  // 用闭包变量判断的话每次注入都以为"没装过"，会把 fetch/XHR 越包越多层 → 页面越跑越卡。
+  function installSniffer() {
+    if (window.__TP_SNIFF) return;
+    window.__TP_SNIFF = true;
+    window.__TPU = window.__TPU || [];
+    const U = window.__TPU;
+    const push = (u) => { if (U.length < 400) U.push(String(u)); };
+    const rawOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (m, u) { push(u); return rawOpen.apply(this, arguments); };
+    const rawFetch = window.fetch;
+    window.fetch = function (a) { push(typeof a === 'string' ? a : ((a && a.url) || '')); return rawFetch.apply(this, arguments); };
+  }
+  // 等页面自然发出一个匹配 URL（轮询 1 秒一次，通常几百毫秒就等到）
+  async function sniffMatch(re, ms) {
+    installSniffer();
+    const t0 = Date.now();
+    for (;;) {
+      const arr = window.__TPU || [];
+      for (let i = arr.length - 1; i >= 0; i -= 1) {
+        const m = String(arr[i]).match(re);
+        if (m) return m;
+      }
+      if (Date.now() - t0 > (ms || 0)) return null;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+
+  async function apiIds(preferUserId) {
+    if (preferUserId) ID_CACHE.userId = String(preferUserId);
+    if (ID_CACHE.roomId && ID_CACHE.userId && Date.now() - ID_CACHE.at < 5 * 60 * 1000) return ID_CACHE;
+    let roomId = ID_CACHE.roomId || '';
+    let userId = ID_CACHE.userId || '';
+
+    // ① 听页面自己的请求（最靠谱：轮询里必带 room_id，还顺带能拿到 sec_uid）
+    if (!roomId) {
+      const m = await sniffMatch(/[?&]room_id=(\d{10,})/, 8000);
+      if (m) roomId = m[1];
+    }
+    if (!userId) {
+      const m = await sniffMatch(/(MS4wLjABAAAA[\w\-]{20,})/, 0);
+      if (m) userId = m[1];
+    }
+
+    // ② 评论轮询接口的响应里带 wss_push_room_id（GET，只靠 cookie）
+    if (!roomId || !userId) {
+      try {
+        const r = await fetch('/data/life/live/comment/im_list/?offset=0&count=0', { credentials: 'include' });
+        const t = await r.text();
+        if (!roomId) {
+          let m = t.match(/wss_push_room_id[:=]?\s*"?(\d{12,})/);
+          if (m) roomId = m[1];
+          if (!roomId) { m = t.match(/"room_id"\s*:\s*"?(\d{12,})/); if (m) roomId = m[1]; }
+        }
+        if (!userId) {
+          const m = t.match(/(MS4wLjABAAAA[\w\-]{20,})/);
+          if (m) userId = m[1];
+        }
+      } catch (e) {}
+    }
+
+    // ③ DOM / storage 里找主播自己的 sec_uid
+    if (!userId) {
+      try {
+        const m = (document.documentElement.innerHTML || '').match(/MS4wLjABAAAA[\w\-]{20,}/);
+        if (m) userId = m[0];
+      } catch (e) {}
+    }
+    if (!userId) {
+      try {
+        let dump = '';
+        for (let i = 0; i < localStorage.length && i < 200; i++) {
+          const k = localStorage.key(i);
+          dump += String(k) + '=' + String(localStorage.getItem(k) || '') + '|';
+        }
+        const m = dump.match(/MS4wLjABAAAA[\w\-]{20,}/);
+        if (m) userId = m[0];
+      } catch (e) {}
+    }
+
+    ID_CACHE.roomId = roomId;
+    ID_CACHE.userId = userId;
+    ID_CACHE.at = Date.now();
+    return ID_CACHE;
+  }
+
+  // 发一条公屏评论（接口调用）。成功返回 {ok:true, chatId}
+  async function apiComment(text, preferUserId) {
+    const content = String(text || '').trim();
+    if (!content) return { ok: false, reason: 'empty' };
+    const ids = await apiIds(preferUserId);
+    if (!ids.roomId) return { ok: false, reason: 'no-room-id', ids: ids };
+    if (!ids.userId) return { ok: false, reason: 'no-user-id', ids: ids };
+    const body = {
+      room_id: String(ids.roomId),
+      user_id: String(ids.userId),
+      comment_content: content,
+      nickname: '',
+      origin_msg_content: '',
+      origin_msg_id: ''
+    };
+    try {
+      const res = await fetch('/data/life/live/comment/reply/', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const txt = await res.text();
+      let j = null;
+      try { j = JSON.parse(txt); } catch (e) { j = null; }
+      if (!j) return { ok: false, reason: 'bad-json', http: res.status, text: String(txt).slice(0, 120), ids: ids };
+      const code = (j.code != null) ? j.code : j.status_code;
+      if (code === 0) return { ok: true, chatId: j.chat_id || '', how: 'api', ids: ids };
+      return { ok: false, reason: String(j.msg || j.status_msg || ('code ' + code)), raw: String(txt).slice(0, 160), ids: ids };
+    } catch (e) {
+      return { ok: false, reason: String(e && e.message || e), ids: ids };
+    }
+  }
+
+  // ============================================================
+  // 直播间只读数据接口
+  //
+  // 这些路径对照的是 eos.douyin.com 本地生活直播中控台自己就在用的接口
+  // （页面里 1 秒轮询 /comment/im_list，商品列表来自 /shelves/anchor）。
+  // 在页面上下文里 fetch，同源 + 带 cookie + secsdk 自动补签，等价于页面自己发的请求。
+  // 全部只读，不改直播间状态，失败只影响面板显示。
+  // ============================================================
+  async function apiReq(path, opts) {
+    opts = opts || {};
+    const method = (opts.method || 'GET').toUpperCase();
+    let url = path;
+    if (opts.query && Object.keys(opts.query).length) {
+      const qs = new URLSearchParams(opts.query).toString();
+      url += (url.indexOf('?') >= 0 ? '&' : '?') + qs;
+    }
+    const init = { method: method, credentials: 'include' };
+    if (method !== 'GET') {
+      init.headers = { 'content-type': 'application/json' };
+      init.body = JSON.stringify(opts.body || {});
+    }
+    let res;
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      return { ok: false, reason: 'net:' + String(e && e.message || e) };
+    }
+    let txt = '';
+    try { txt = await res.text(); } catch (e) { txt = ''; }
+    let j = null;
+    try { j = JSON.parse(txt); } catch (e) { j = null; }
+    if (!j) {
+      return { ok: false, reason: (res.status === 404 ? 'no-endpoint' : 'bad-json'), http: res.status, text: String(txt).slice(0, 100) };
+    }
+    const code = (j.status_code != null) ? j.status_code : j.code;
+    const ok = (code === 0);
+    return {
+      ok: ok,
+      code: code,
+      reason: ok ? '' : String(j.status_msg || j.msg || ('code ' + code)),
+      data: j
+    };
+  }
+
+  // 实时大屏：在线人数 / 累计观看 / 涨粉 / 成交单数 / GMV / 观看-支付转化率
+  async function apiRoomStats(roomId) {
+    const id = String(roomId || '');
+    if (!id) return { ok: false, reason: 'no-room-id' };
+    const r = await apiReq('/data/life/live/data/live_data/v3/', { query: { room_id: id } });
+    if (!r.ok) return r;
+    const d = r.data || {};
+    const num = (v) => {
+      if (v == null) return null;
+      if (typeof v === 'object') return (v.value == null ? null : Number(v.value));
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    return {
+      ok: true,
+      stats: {
+        online: num(d.online_watch_ucnt),
+        watch: num(d.live_watch_ucnt),
+        follow: num(d.live_follow_cnt),
+        order: num(d.live_order_cnt),
+        gmv: num(d.live_gmv),
+        payRate: (d.ViewPayRate == null ? null : Number(d.ViewPayRate)),
+        createTime: d.create_time || ''
+      },
+      at: Date.now()
+    };
+  }
+
+  // 单个商品的曝光 / 点击 / 成交单数 / GMV（弹讲解效果的唯一客观依据）
+  async function apiCardStats(ids, roomId) {
+    const list = (Array.isArray(ids) ? ids : [ids]).map((x) => String(x || '')).filter(Boolean);
+    const id = String(roomId || '');
+    if (!list.length) return { ok: false, reason: 'no-ids' };
+    if (!id) return { ok: false, reason: 'no-room-id' };
+    const r = await apiReq('/data/life/live/component/stats/', {
+      query: { component_ids: list.join(','), room_id: id }
+    });
+    if (!r.ok) return r;
+    const src = (r.data && r.data.component_conversion_data) || {};
+    const out = {};
+    Object.keys(src).forEach((k) => {
+      const v = src[k] || {};
+      out[k] = {
+        show: Number(v.show) || 0,
+        click: Number(v.click) || 0,
+        order: Number(v.order_count) || 0,
+        gmv: Number(v.gmv) || 0
+      };
+    });
+    return { ok: true, rows: out, at: Date.now() };
+  }
+
+  // 货架：本场挂的全部商品（含 card_id / product_id / 名称 / 价格 / 库存）
+  async function apiShelf(roomId) {
+    const id = String(roomId || '');
+    if (!id) return { ok: false, reason: 'no-room-id' };
+    const r = await apiReq('/data/life/live/shelves/anchor/', {
+      query: {
+        agg_card_id: '0',
+        room_id: id,
+        req_source: 'pc_current',
+        with_promotion_price_type: 'true'
+      }
+    });
+    if (!r.ok) return r;
+    const list = (r.data && r.data.card_list) || [];
+    const items = list.map((card, i) => {
+      const base = card.card_base_info || {};
+      const prod = card.product_base_info || {};
+      const img = (prod.image_info && prod.image_info[0] && prod.image_info[0].web_url) || '';
+      return {
+        i: i + 1,
+        name: String(prod.name || ''),
+        goodsId: String(prod.product_id || ''),
+        cardId: String(base.card_id || ''),
+        img: img,
+        shop: String((prod.poi && prod.poi.shop_info) || ''),
+        sku: prod.sku_count == null ? null : Number(prod.sku_count)
+      };
+    }).filter((x) => x.name || x.goodsId);
+    return { ok: items.length > 0, count: items.length, items: items, reason: items.length ? '' : 'empty-shelf' };
+  }
+
+  // 直播间状态（顺带当保活心跳：1 分钟一次只读请求，页面不会被判定挂机）
+  async function apiLiveStatus() {
+    return apiReq('/data/life/live/status/');
+  }
+
+  // 切讲解：POST /data/life/live/card/switch/
+  //   card_id   要讲解的卡（来自 apiShelf 的 cardId）
+  //   operation 3 = 讲解
+  //   source    来源标记，7 = 第三方中控（页面自己发的是别的值）
+  // 这条不点 DOM、不占页面，所以弹讲解不再和发评/发券抢 PageBus。
+  async function apiSwitchCard(cardId, roomId, operation) {
+    const cid = String(cardId || '');
+    const rid = String(roomId || '');
+    if (!cid) return { ok: false, reason: 'no-card-id' };
+    if (!rid) return { ok: false, reason: 'no-room-id' };
+    const r = await apiReq('/data/life/live/card/switch/', {
+      method: 'POST',
+      body: {
+        card_id: cid,
+        source: 7,
+        operation: Number(operation || 3),
+        room_id: rid
+      }
+    });
+    if (!r.ok) return r;
+    return { ok: true, cardId: cid, op: Number(operation || 3) };
+  }
+
+  // 官方抽屉 / 弹窗是否正开着（开了就先让机器人停手，别跟人抢）
+  //
+  // 这里必须判得严：抖音的抽屉关掉后 DOM 节点通常还留着，只是被 transform 移出屏幕，
+  // 只看 display/opacity 会把它当成"还开着"，于是机器人永远在让位、什么都不干。
+  // 所以除了尺寸和样式，还要 (1) 真的落在视口里 (2) 中心点能点到它自己或它的子节点。
+  function officialBusy() {
+    const vw = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 0;
+    const vh = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0;
+    const vis = (el) => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return false;
+      // 出屏（抽屉收起后常这样）不算
+      if (r.right < 4 || r.left > vw - 4 || r.bottom < 4 || r.top > vh - 4) return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
+      return true;
+    };
+    // 中心点能不能真的点到它（排除被别的层盖住 / 移出屏幕的残留节点）
+    const hittable = (el) => {
+      try {
+        const r = el.getBoundingClientRect();
+        const x = Math.min(Math.max(r.left + r.width / 2, 1), vw - 1);
+        const y = Math.min(Math.max(r.top + r.height / 2, 1), vh - 1);
+        const hit = document.elementFromPoint(x, y);
+        if (!hit) return false;
+        return hit === el || el.contains(hit) || hit.contains(el);
+      } catch (e) {
+        return false;
+      }
+    };
+    const sig = (el) => String((el && el.getAttribute && el.getAttribute('class')) || '').slice(0, 60);
+
+    const mask = document.querySelector('.okee-current-live-drawer-mask-show');
+    if (vis(mask)) return { busy: true, why: 'drawer-mask', el: sig(mask) };
+
+    const modal = Array.from(document.querySelectorAll('[class*="modal-content-inner"]')).find((el) => vis(el) && hittable(el));
+    if (modal) return { busy: true, why: 'modal', el: sig(modal) };
+
+    try {
+      if (document.body && document.body.style.overflow === 'hidden') {
+        const anyDrawer = Array.from(document.querySelectorAll('.okee-current-live-drawer-body')).find((el) => vis(el) && hittable(el));
+        if (anyDrawer) return { busy: true, why: 'drawer-body', el: sig(anyDrawer) };
+      }
+    } catch (e) {}
+    return { busy: false, why: '' };
+  }
+
+  // 校验一个坐标现在还能不能点（在视口内 + 没被浮层挡住）
+  function pointOk(x, y) {
+    const px = Number(x);
+    const py = Number(y);
+    if (!(px > 0) || !(py > 0)) return { ok: false, reason: 'bad-point' };
+    if (!inViewport(px, py)) return { ok: false, reason: 'out-of-view' };
+    let hit = null;
+    try { hit = document.elementFromPoint(px, py); } catch (e) { hit = null; }
+    if (!hit) return { ok: false, reason: 'nothing' };
+    return { ok: true, tag: hit.tagName, text: norm(hit.textContent).slice(0, 24), cls: String(hit.getAttribute('class') || '').slice(0, 40) };
+  }
+
+  // 按券名找那一行的「发放优惠券」按钮坐标（抽屉需已打开）
+  function couponRowBtn(name) {
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const want = norm(name);
+    const rows = couponRows();
+    if (!rows.length) return { ok: false, reason: 'no-row' };
+    let hit = rows.find((x) => String(x.cells[0] || '').indexOf(want) >= 0);
+    if (!hit) {   // 名字可能带「复制ID」等尾巴，退一步按前缀/包含匹配
+      hit = rows.find((x) => want && (String(x.cells[0] || '').indexOf(want.slice(0, 6)) >= 0));
+    }
+    if (!hit) return { ok: false, reason: 'row-not-found', names: rows.map((x) => x.cells[0]) };
+    // 券多了表格会滚动：先把这一行滚进可视区再量坐标，否则点空
+    revealEl(hit.btn);
+    const r = hit.btn.getBoundingClientRect();
+    if (r.width < 2) return { ok: false, reason: 'btn-invisible' };
+    const abs = absCenterOf(hit.btn) || { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    if (!inViewport(abs.x, abs.y)) return { ok: false, reason: 'row-out-of-view', name: hit.cells[0], point: abs };
+    return { ok: true, name: hit.cells[0], point: abs };
+  }
+
+  // 读发放确认弹窗：数量/时长的小圆点档位（含禁用状态）+ 确认/取消坐标
+  function couponModalState() {
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    // 页面里可能同时存在多个 modal 骨架（隐藏的旧弹层），必须挑「可见且带圆点」的那个，
+    // 否则会读到空弹层 → 表现为"弹窗读不到档位"。
+    const modals = Array.from(document.querySelectorAll('[class*="modal-content-inner"]')).filter((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 120 || r.height < 60) return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      return !!el.querySelector('label[class*="radio"]');
+    });
+    const modal = modals[0];
+    if (!modal) return { ok: false, reason: 'modal-not-found' };
+    const labels = Array.from(modal.querySelectorAll('label[class*="radio"]'));
+    const qty = [];
+    const dur = [];
+    let section = 'qty'; // 数量区在前、时长区在后；见到「N分钟」即切换
+    labels.forEach((l) => {
+      const t = norm(l.textContent);
+      if (!t) return;
+      if (/^[0-9]+分钟$/.test(t)) section = 'dur';
+      const inp = l.querySelector('input');
+      const r = l.getBoundingClientRect();
+      (section === 'qty' ? qty : dur).push({
+        text: t,
+        disabled: /disabled/.test(String(l.getAttribute('class') || '')) || !!(inp && inp.disabled),
+        checked: !!(inp && inp.checked),
+        x: Math.round(r.x + r.width / 2),
+        y: Math.round(r.y + r.height / 2)
+      });
+    });
+    const btnOf = (want) => {
+      const b = Array.from(modal.querySelectorAll('button')).find((x) => norm(x.textContent) === want);
+      if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+    };
+    return {
+      ok: true,
+      qty: qty.filter((q) => q.text),
+      dur: dur.filter((d) => d.text),
+      confirm: btnOf('确定发放'),
+      cancel: btnOf('取消'),
+      close: (() => { const c = modal.querySelector('[class*="modal-close-icon"]'); if (!c) return null; const r = c.getBoundingClientRect(); return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }; })()
+    };
+  }
+
+  // 在弹窗里点某个档位（按文案），点前确认可用
+  function couponPick(text) {
+    const st = couponModalState();
+    if (!st.ok) return st;
+    const all = st.qty.concat(st.dur);
+    const hit = all.find((o) => o.text === text && !o.disabled);
+    if (!hit) return { ok: false, reason: 'option-disabled', options: all.map((o) => o.text + (o.disabled ? '(禁)' : '')) };
+    return { ok: true, point: { x: hit.x, y: hit.y }, text: hit.text };
+  }
+
+  // 2026-10-21 真机验证：商品卡操作区有 [class*="seckill-btn-container"] 闪电入口，
+  // 点开是「投放秒杀」抽屉，内容在 iframe（eos.douyin.com/life_marketing/drop-spike）里：
+  //   投放方式(立即投放/定时投放) · 投放库存 · 每人限购 · 秒杀倒计时(关闭/开启) · 提交/取消
+  // 抽屉里有两个 .byted-input-number-input：第 1 个=投放库存，第 2 个=每人限购。
+
+  // 主页面：扫商品卡上的秒杀入口，返回卡片序号 + 名称 + 按钮中心点（布局像素）
+  function seckillScan() {
+    const cont = document.querySelector('#live-card-list');
+    if (!cont) return { ok: false, reason: 'no-card-list', items: [] };
+    const cards = Array.from(cont.querySelectorAll('div[role="button"][aria-label]'));
+    const btns = Array.from(cont.querySelectorAll('[class*="seckill-btn-container"]'));
+    const items = [];
+    btns.forEach((b) => {
+      let el = b, cardIdx = -1;
+      while (el && cardIdx < 0) { cardIdx = cards.indexOf(el); el = el.parentElement; }
+      const r = b.getBoundingClientRect();
+      if (!isVisible(b) || r.width < 2) return;
+      items.push({
+        i: cardIdx >= 0 ? cardIdx + 1 : 0,
+        name: cardIdx >= 0 ? cardName(cards[cardIdx]) : '',
+        x: Math.round(r.x + r.width / 2),
+        y: Math.round(r.y + r.height / 2)
+      });
+    });
+    return { ok: true, cards: cards.length, items };
+  }
+
+  // 把 iframe 里的元素坐标换算成顶层页面布局坐标（同源，frameElement 可访问）
+  function absPoint(el) {
+    let x = 0, y = 0, win = window;
+    let fe = null;
+    try { fe = win.frameElement; } catch (e) { fe = null; }
+    const r = el.getBoundingClientRect();
+    x += r.x; y += r.y;
+    while (fe) {
+      const fr = fe.getBoundingClientRect();
+      x += fr.x; y += fr.y;
+      win = win.parent;
+      try { fe = win.frameElement; } catch (e) { fe = null; }
+    }
+    return { x: Math.round(x), y: Math.round(y) };
+  }
+
+  // 注意：上面已有通用的 centerOf（返回 {x,y,lx,ly}，locate 依赖 lx/ly 做遮挡检测）。
+  // 这里必须另起名字，否则会覆盖掉通用版本，导致 locate() 的 elementFromPoint 收到 undefined，
+  // 全部真实点击被判成「被遮挡」——表现为所有功能点了没反应。
+  function absCenterOf(el) {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return null;
+    const p = absPoint(el);
+    return { x: p.x + Math.round(r.width / 2), y: p.y + Math.round(r.height / 2) };
+  }
+
+  // 在秒杀 iframe 内按文本找「叶子」可点元素（编辑 / 修改 / 追加库存 …）
+  // 后台这些入口多是 span/div，不是 button，只按 button 找会永远找不到。
+  function seckillFindEl(texts) {
+    const list = (Array.isArray(texts) ? texts : [texts]).map((s) => String(s || '')).filter(Boolean);
+    let hit = null;
+    document.querySelectorAll('button,span,div,a,label,li').forEach((el) => {
+      if (hit || el.children.length) return;
+      const t = norm(el.textContent);
+      if (!t || list.indexOf(t) < 0) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      hit = el;
+    });
+    return hit;
+  }
+
+  // 点秒杀 iframe 内按文本的控件（DOM 点击，绕开坐标误差）
+  function seckillClickText(texts) {
+    const el = seckillFindEl(texts);
+    if (!el) return { ok: false, reason: 'not-found', want: (Array.isArray(texts) ? texts : [texts]).join('/') };
+    try { el.scrollIntoView({ block: 'center' }); } catch (e) {}
+    el.click();
+    return { ok: true, text: norm(el.textContent) };
+  }
+
+  // 秒杀「详情」抽屉：已投放后点闪电图标看到的是详情，不是投放表单。
+  // 真机文案（2026-10-21）：
+  //   秒杀详情 / 0 订单数 / 秒杀件数 / 订单金额 / 活动名称 / 秒杀价 / 活动ID / 秒杀库存(总) /
+  //   授权时段 / 活动商品 / 活动状态 进行中 / 投放方式 定时投放 / 每人限购 / 投放时间 / 投放库存 N / 编辑 / 停止投放
+  // 剩余 = 投放库存 - 秒杀件数（投放出去还没卖掉的件数），补充就靠它判断。
+  function seckillDetail() {
+    const body = norm(document.body ? document.body.textContent : '');
+    // 主文档里也有「投放库存」这类模板文字，必须真读到数字才算详情页
+    if (!/投放库存\s*[0-9,]+/.test(body)) return { ok: false, reason: 'not-detail' };
+    if (!/秒杀详情|秒杀件数|活动状态/.test(body)) return { ok: false, reason: 'not-detail' };
+    const num = (re) => {
+      const m = body.match(re);
+      return m ? Number(String(m[1]).replace(/[,，]/g, '')) : null;
+    };
+    const findBtn = (re) => {
+      let hit = null;
+      document.querySelectorAll('button,span,div,a').forEach((el) => {
+        if (hit || el.children.length) return;
+        if (!re.test(norm(el.textContent))) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) return;
+        hit = el;
+      });
+      return hit;
+    };
+    const editEl = findBtn(/^(编辑|修改)$/);
+    const stopEl = findBtn(/^(停止投放|停止秒杀|终止投放|取消投放)$/);
+    const stock = num(/投放库存\s*([0-9,]+)/);
+    const sold = num(/秒杀件数\s*([0-9,]+)/);
+    const total = num(/秒杀库存\s*([0-9,]+)/);
+    const limit = num(/每人限购\s*([0-9,]+)/);
+    const status = (body.match(/(进行中|未开始|待开始|已结束|已停止)/) || [])[1] || '';
+    const tm = body.match(/投放时间\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*~\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);
+    const remain = (stock != null && sold != null) ? Math.max(0, stock - sold) : null;
+    return {
+      ok: true,
+      status,
+      stock,
+      sold,
+      total,
+      limit,
+      remain,
+      buyMode: (body.match(/(定时投放|立即投放)/) || [])[1] || '',
+      timeFrom: tm ? tm[1] : '',
+      timeTo: tm ? tm[2] : '',
+      hasEdit: !!editEl,
+      points: { edit: absCenterOf(editEl), stop: absCenterOf(stopEl) },
+      text: body.slice(0, 240)
+    };
+  }
+
+  // 读抽屉里的状态文案（进行中 / 剩余 / 已投放库存 …），编辑态和投放态都能用
+  function seckillStatus() {
+    if (!document.querySelector('.byted-input-number-input') && !document.querySelector('.byted-form-item')) {
+      return { ok: false, reason: 'not-seckill-frame' };
+    }
+    const body = norm(document.body.textContent);
+    const grab = (re) => {
+      const m = body.match(re);
+      return m ? Number(String(m[1]).replace(/,/g, '')) : null;
+    };
+    const num = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? String(el.value || '') : '';
+    };
+    const inputs = Array.from(document.querySelectorAll('.byted-input-number-input')).map((el) => String(el.value || ''));
+    const btns = [];
+    document.querySelectorAll('button,span,div,a').forEach((el) => {
+      if (el.children.length) return;
+      const t = norm(el.textContent);
+      if (!t || t.length > 8) return;
+      if (!/^(编辑|修改|停止投放|停止秒杀|终止投放|追加库存|补充库存|提交|取消|确定|确认)$/.test(t)) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      if (btns.indexOf(t) < 0) btns.push(t);
+    });
+    return {
+      ok: true,
+      nums: inputs,
+      buttons: btns,
+      remain: grab(/剩余[^0-9]{0,6}([0-9,]+)/),
+      total: grab(/(?:总库存|投放库存)[^0-9]{0,6}([0-9,]+)/),
+      sold: grab(/(?:已售|已抢|已卖出)[^0-9]{0,6}([0-9,]+)/),
+      statusText: (body.match(/(进行中|未开始|已结束|已停止)/) || [])[1] || '',
+      hasEdit: !!seckillFindEl(['编辑', '修改', '追加库存', '补充库存', '增加库存']),
+      sample: body.slice(0, 260)
+    };
+  }
+
+  // 在投放秒杀 iframe 内执行：读表单状态 + 返回各控件的真实坐标
+  function seckillForm() {
+    const numInputs = document.querySelectorAll('.byted-input-number-input');
+    if (!numInputs.length) return { ok: false, reason: 'form-not-found' };
+    const radioByText = (want) => {
+      let hit = null;
+      document.querySelectorAll('label').forEach((el) => {
+        if (hit) return;
+        const input = el.querySelector('input[type="radio"]');
+        if (!input || norm(el.textContent) !== want) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2) return;
+        hit = { el, checked: input.checked };
+      });
+      return hit;
+    };
+    const btnByText = (want) => {
+      let hit = null;
+      document.querySelectorAll('button').forEach((el) => {
+        if (hit) return;
+        if (norm(el.textContent) !== want) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 2) return;
+        hit = el;
+      });
+      return hit;
+    };
+    // 「投放时长」这类分段控件其实是 span/div 叶子节点（不是 button），
+    // 只按 button 找会永远找不到 —— 之前"时长没选上、提交一直禁用"就是这个原因。
+    const leafByText = (want) => {
+      let hit = null;
+      document.querySelectorAll('span,div,button,label').forEach((el) => {
+        if (hit || el.children.length) return;
+        if (norm(el.textContent) !== want) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) return;
+        hit = el;
+      });
+      return hit;
+    };
+    // 找停止类按钮（秒杀进行中才会出现，文案待真投放后核实）
+    let stopBtn = null;
+    document.querySelectorAll('button').forEach((el) => {
+      if (stopBtn) return;
+      const t = norm(el.textContent);
+      if (/^(停止投放|停止秒杀|终止投放|终止秒杀|取消投放)$/.test(t)) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 2) stopBtn = el;
+      }
+    });
+    const stock = numInputs[0];
+    const limit = numInputs[1] || null;
+    // 已投放过的秒杀：抽屉里是「查看态」，要先进「编辑」才能改投放库存。
+    // 剩余补充就是靠这个入口：编辑 → 在原投放库存上追加 → 提交。
+    const editEl = seckillFindEl(['编辑', '修改', '追加库存', '补充库存', '增加库存']);
+    const editText = editEl ? norm(editEl.textContent) : '';
+    const submit = btnByText('提交');
+    const cancel = btnByText('取消');
+    const nowR = radioByText('立即投放');
+    const schedR = radioByText('定时投放');
+    // 投放时长按钮（立即投放才有）：10分钟 / 30分钟 / 60分钟 / 自定义
+    const durBtn = {};
+    ['10分钟', '30分钟', '60分钟', '自定义'].forEach((t) => {
+      durBtn[t] = absCenterOf(leafByText(t) || btnByText(t));
+    });
+    // 自定义时长输入框（HH:MM:SS）
+    const customDur = document.querySelector('input.byted-input.byted-input-size-md');
+    // 定时投放的「选择开始/结束日期时间」按钮
+    const rangeItems = Array.from(document.querySelectorAll('.byted-date-time-range-picker-item'));
+    const body = norm(document.body.textContent);
+    const remain = body.match(/剩余[^0-9]{0,6}([0-9,]+)/);
+    const activeDur = (() => {
+      const hit = Array.from(document.querySelectorAll('button')).find((b) => /^(10分钟|30分钟|60分钟)$/.test(norm(b.textContent)) && /primary/.test(String(b.className)));
+      return hit ? norm(hit.textContent) : '';
+    })();
+    return {
+      ok: true,
+      mode: nowR && nowR.checked ? 'now' : 'sched',
+      activeDur,
+      stockValue: stock ? stock.value : '',
+      limitValue: limit ? limit.value : '',
+      customDurValue: customDur ? customDur.value : '',
+      submitDisabled: submit ? !!submit.disabled : true,
+      countdown: (radioByText('开启') || {}).checked ? 'on' : 'off',
+      remain: remain ? Number(remain[1].replace(/,/g, '')) : null,
+      hasEdit: !!editEl,
+      editText,
+      statusText: (body.match(/(进行中|未开始|已结束|已停止)/) || [])[1] || '',
+      bodySample: body.slice(0, 240),
+      points: {
+        stock: absCenterOf(stock),
+        limit: absCenterOf(limit),
+        edit: absCenterOf(editEl),
+        now: absCenterOf(nowR && nowR.el),
+        sched: absCenterOf(schedR && schedR.el),
+        dur10: durBtn['10分钟'],
+        dur30: durBtn['30分钟'],
+        dur60: durBtn['60分钟'],
+        durCustom: durBtn['自定义'],
+        customDur: absCenterOf(customDur),
+        timeStart: absCenterOf(rangeItems[0]),
+        timeEnd: absCenterOf(rangeItems[1]),
+        countdownOn: absCenterOf(radioByText('开启') && radioByText('开启').el),
+        submit: absCenterOf(submit),
+        cancel: absCenterOf(cancel),
+        stop: absCenterOf(stopBtn)
+      }
+    };
+  }
+
+  // 定时投放：在日历面板里选开始/结束时间（"YYYY-MM-DD HH:mm"）。
+  // 真机结构（2026-10-21）：
+  //   日期格 .byted-date-item（本月带 byted-date-grid-in / today / grid-start / grid-end）
+  //   时 .byted-hour-select-item(24) / 分 .byted-minute-select-item(60) / 秒 .byted-second-select-item
+  //   没选日期时这些列全是 -disabled；选完日期后可用项才解除禁用
+  //   底部 .byted-date-time-range-picker-confirm 就是「确定」
+  // 关键：这是「范围」选择器 —— 点确定后往往自动进入"选结束"阶段，
+  // 这时必须继续在同一个面板里选结束，不能再去点结束按钮（会重置掉开始）。
+  async function seckillPickRange(startStr, endStr) {
+    const norm2 = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const items = Array.from(document.querySelectorAll('.byted-date-time-range-picker-item'));
+    if (items.length < 2) return { ok: false, reason: 'no-range-input' };
+
+    const popperOf = () => {
+      const list = Array.from(document.querySelectorAll('.byted-date-time-range-picker-popper'))
+        .filter((el) => el.getBoundingClientRect().width > 200);
+      return list[list.length - 1] || null;
+    };
+    const confirmOf = (popper) => popper.querySelector('.byted-date-time-range-picker-confirm')
+      || Array.from(popper.querySelectorAll('button')).find((b) => norm2(b.textContent) === '确定');
+
+    // 在已打开的面板里选「日期 + 时:分 + 秒00」
+    const pickInPanel = async (popper, str) => {
+      const m = String(str || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})/);
+      if (!m) return { ok: false, reason: 'bad-time-format' };
+      const day = String(Number(m[3]));
+      const dateCells = Array.from(popper.querySelectorAll('.byted-date-item'))
+        .filter((el) => /byted-date-grid-in|byted-date-today|byted-date-grid-start|byted-date-grid-end/.test(el.className))
+        .filter((el) => !/disabled/.test(el.className));
+      const cell = dateCells.find((el) => norm2(el.textContent) === day);
+      if (!cell) return { ok: false, reason: 'day-not-found:' + day };
+      cell.click();
+      await sleep(420);
+
+      const choose = (sel, want) => {
+        const okOnes = Array.from(popper.querySelectorAll(sel)).filter((el) => !/disabled/.test(el.className));
+        if (!okOnes.length) return false;
+        // 精确匹配优先（列表是循环滚动，不靠滚动、直接点目标值；找不到才取最近的更大值）
+        const hit = okOnes.find((el) => norm2(el.textContent) === want)
+          || okOnes.find((el) => Number(norm2(el.textContent)) >= Number(want))
+          || okOnes[okOnes.length - 1];
+        try { hit.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+        hit.click();
+        return true;
+      };
+      choose('.byted-hour-select-item', String(Number(m[4])).padStart(2, '0'));
+      await sleep(220);
+      choose('.byted-minute-select-item', String(Number(m[5])).padStart(2, '0'));
+      await sleep(220);
+      choose('.byted-second-select-item', '00');   // 秒统一取 00，避免出现 59 秒的怪时间
+      await sleep(220);
+      return { ok: true };
+    };
+
+    const commit = async (popper) => {
+      const c = confirmOf(popper);
+      if (!c) return { ok: false, reason: 'no-confirm' };
+      if (c.disabled) return { ok: false, reason: 'confirm-disabled' };
+      c.click();
+      await sleep(450);
+      return { ok: true };
+    };
+
+    // ① 打开面板（点「选择开始日期时间」）
+    items[0].click();
+    await sleep(750);
+    let popper = popperOf();
+    if (!popper) return { ok: false, reason: 'no-popper' };
+
+    const s1 = await pickInPanel(popper, startStr);
+    if (!s1.ok) return { ok: false, reason: 'start:' + s1.reason };
+
+    // ② 确定开始 —— 之后面板通常还开着并切到「选结束」
+    const c1 = await commit(popper);
+    if (!c1.ok) return { ok: false, reason: 'start-commit:' + c1.reason };
+
+    let samePopper = popperOf();
+    if (!samePopper) {
+      // 面板被关掉了：重新点结束按钮
+      items[1].click();
+      await sleep(750);
+      samePopper = popperOf();
+      if (!samePopper) return { ok: false, reason: 'no-popper-end' };
+    }
+    const s2 = await pickInPanel(samePopper, endStr);
+    if (!s2.ok) return { ok: false, reason: 'end:' + s2.reason };
+    const c2 = await commit(samePopper);
+    if (!c2.ok) return { ok: false, reason: 'end-commit:' + c2.reason };
+
+    await sleep(400);
+    const texts = items.map((el) => norm2(el.textContent));
+    const okStart = texts[0] && texts[0].indexOf('选择') < 0;
+    const okEnd = texts[1] && texts[1].indexOf('选择') < 0;
+    return { ok: !!(okStart && okEnd), start: texts[0], end: texts[1], texts };
+  }
+
+  // 在 iframe 内执行：给第 idx 个数字输入框写值（React 受控组件，setNativeValue 兼容）
+  function seckillSetNum(idx, val) {
+    const inputs = document.querySelectorAll('.byted-input-number-input');
+    const el = inputs[idx];
+    if (!el) return { ok: false, reason: 'input-not-found' };
+    setNativeValue(el, String(val));
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+    return { ok: true, value: el.value };
+  }
+
+  // 自定义投放时长（HH:MM:SS，如 0:45:00 = 45 分钟）
+  function seckillSetCustomDur(hms) {
+    const el = document.querySelector('input.byted-input.byted-input-size-md');
+    if (!el) return { ok: false, reason: 'input-not-found' };
+    setNativeValue(el, String(hms));
+    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+    return { ok: true, value: el.value };
+  }
+
+  // 关掉抽屉：优先点右上角 ✕，找不到就让调用方按 Esc
+  function seckillClose() {
+    let hit = null;
+    document.querySelectorAll('[class*="drawer-dialog"] [class*="close"], [class*="drawer"] [class*="close-icon"], [class*="drawer-header"] [class*="close"]').forEach((el) => {
+      if (hit) return;
+      const r = el.getBoundingClientRect();
+      if (isVisible(el) && r.width > 6) hit = el;
+    });
+    if (!hit) return { ok: false, reason: 'no-close-btn' };
+    return { ok: true, point: absCenterOf(hit) };
+  }
+
+  // ---------- 一键适配（自动分析后台，免手动绑定） ----------
+  // 识别名单按功能分组：主页面 + 同源 iframe（秒杀抽屉在 life_marketing/drop-spike）一起扫。
+  // 命中的直接写进选择器；没命中的写清「什么时候能看到」，不留空白。
+  function autoDetect() {
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const out = { ok: true, items: [] };
+    const add = (group, key, label, found, selector, sample) => {
+      out.items.push({ group, key, label, found: !!found, selector: found ? selector : '', sample: String(sample || '').slice(0, 42) });
+    };
+
+    // 收集所有同源 document（主页面 + 抽屉/表单 iframe，最多 3 层）
+    const roots = [];
+    const collect = (doc, depth) => {
+      if (!doc || depth > 3) return;
+      roots.push(doc);
+      let frames = [];
+      try { frames = Array.from(doc.querySelectorAll('iframe')); } catch (e) { frames = []; }
+      frames.forEach((f) => {
+        let d = null;
+        try { d = f.contentDocument; } catch (e) { d = null; }
+        if (d) collect(d, depth + 1);
+      });
+    };
+    collect(document, 0);
+    const inRoots = (fn) => {
+      for (const d of roots) { try { const r = fn(d); if (r) return r; } catch (e) {} }
+      return null;
+    };
+    const leaf = (d, re) => {
+      let hit = null;
+      (d.querySelectorAll ? d.querySelectorAll('button,span,div,a,label') : []).forEach((el) => {
+        if (hit || el.children.length) return;
+        const t = norm(el.textContent);
+        if (!t || !re.test(t)) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) return;
+        hit = el;
+      });
+      return hit;
+    };
+
+    // ① 商品 / 讲解
+    const cardList = document.querySelector('#live-card-list');
+    const cardCount = cardList ? cardList.querySelectorAll('div[role="button"][aria-label]').length : 0;
+    add('商品', 'card', '商品卡片', cardCount > 0, 'xpath=(//*[@id="live-card-list"]//div[@role="button"][@aria-label])[{{n}}]', cardCount + ' 张卡');
+    let actFound = false;
+    if (cardCount) {
+      const c0 = cardList.querySelector('div[role="button"][aria-label]');
+      actFound = !!(c0 && (findByText('讲解', c0) || c0.querySelector('[class*="talking-btn"]')));
+    }
+    add('商品', 'cardAction', '「讲解 / 取消讲解」按钮', actFound, 'class=talking-btn\ntext=讲解', actFound ? '卡片操作区可见' : '鼠标移到商品卡上才出现');
+
+    // ② 评论（回评/发评）
+    const cWrap = document.querySelector('[class*="comment-wrap"]');
+    const cInput = cWrap ? cWrap.querySelector('textarea[placeholder*="输入评论"],textarea') : null;
+    add('评论', 'commentInput', '评论输入框', !!cInput, 'textarea[placeholder*="输入评论"]\n[class*="comment-wrap"] textarea', cInput ? cInput.getAttribute('placeholder') || 'textarea' : '');
+    const cList = document.querySelector('#comment_all_tab_list_container');
+    const cItem = cList ? cList.querySelector('div[class*="item-"]') : null;
+    add('评论', 'commentItem', '评论列表条目', !!cItem, '#comment_all_tab_list_container > div[class*="item-"]', cItem ? norm(cItem.textContent).slice(0, 30) : '容器在即通过，条目等新评论');
+    add('评论', 'commentUser', '　└ 评论昵称', !!(cItem && cItem.querySelector('[class*="item-name"]')), '[class*="item-name"]', '');
+    add('评论', 'commentText', '　└ 评论内容', !!(cItem && cItem.querySelector('[class*="item-content"]')), '[class*="item-content"]', '');
+    add('评论', 'sendButton', '发送方式（回车发送）', true, '', '输入框支持 Enter');
+
+    // ③ 优惠券
+    const couponCard = findByText('优惠券');
+    add('优惠券', 'couponEntry', '优惠券入口', !!couponCard, 'text=优惠券', couponCard ? norm(couponCard.textContent).slice(0, 20) : '');
+    const rows = document.querySelectorAll('[class*="okee-current-live-Table-Row"]');
+    add('优惠券', 'couponItem', '券列表（表格行）', rows.length > 0, '[class*="okee-current-live-Table-Row"]', rows.length ? rows.length + ' 行' : '打开券面板后可见');
+    const grant = findByText('发放优惠券');
+    add('优惠券', 'couponGrantBtn', '「发放优惠券」按钮', !!grant, 'text=发放优惠券', grant ? '面板已打开' : '打开券面板后可见');
+    const modal = Array.from(document.querySelectorAll('[class*="modal-content-inner"]')).find((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 120 && el.querySelector('label[class*="radio"]');
+    });
+    add('优惠券', 'couponCountInput', '发放档位（数量 / 时长）', !!modal, '弹窗内 label.radio 档位', modal ? modal.querySelectorAll('label[class*="radio"]').length + ' 个档位' : '点「发放优惠券」后可见');
+    const confirm = findByText('确定发放');
+    add('优惠券', 'couponConfirmBtn', '「确定发放」按钮', true, 'text=确定发放', confirm ? '已出现' : '发放弹窗里出现');
+
+    // ④ 秒杀（入口在卡片上，抽屉表单在同源 iframe 里）
+    const skBtns = document.querySelectorAll('[class*="seckill-btn-container"]');
+    add('秒杀', 'seckillEntry', '秒杀入口（闪电按钮）', skBtns.length > 0, '[class*="seckill-btn-container"]', skBtns.length + ' 个商品有闪电按钮');
+    const numInput = inRoots((d) => d.querySelector('.byted-input-number-input'));
+    add('秒杀', 'seckillStock', '投放库存 / 每人限购输入框', !!numInput, 'iframe 内 .byted-input-number-input', numInput ? '抽屉已打开（第 1 个=库存，第 2 个=限购）' : '点闪电按钮后可见');
+    const drawerHit = inRoots((d) => {
+      if (d.querySelector('.byted-form-item') || d.querySelector('.byted-input-number-input')) return '投放表单（drop-spike iframe）';
+      const b = norm(d.body && d.body.textContent);
+      if (/投放库存\s*[0-9,]+/.test(b)) return '秒杀详情（live-detail iframe）';
+      return null;
+    });
+    add('秒杀', 'seckillForm', '秒杀抽屉（投放表单 / 详情）', !!drawerHit, 'life_marketing/drop-spike | live-detail', drawerHit || '点闪电按钮后可见');
+    const durLeaf = inRoots((d) => leaf(d, /^(10分钟|30分钟|60分钟)$/));
+    add('秒杀', 'seckillDuration', '投放时长档位（立即投放）', !!durLeaf, 'text=10分钟 / 30分钟 / 60分钟', durLeaf ? 'span 分段控件（不是 button）' : '切到「立即投放」才出现');
+    const rangePick = inRoots((d) => d.querySelector('.byted-date-time-range-picker-item'));
+    add('秒杀', 'seckillTime', '投放时间选择器（定时投放）', !!rangePick, '.byted-date-time-range-picker-item', rangePick ? '日历范围选择器' : '切到「定时投放」才出现');
+    const editLeaf = inRoots((d) => leaf(d, /^(编辑|修改|追加库存|补充库存)$/));
+    add('秒杀', 'seckillEdit', '「编辑」（已投放后改库存）', !!editLeaf, 'text=编辑 / 修改', editLeaf ? '可进编辑追加库存' : '该商品还没有投放中的秒杀');
+    const detailHit = inRoots((d) => {
+      const b = norm(d.body && d.body.textContent);
+      const stock = (b.match(/投放库存\s*([0-9,]+)/) || [])[1];
+      if (!stock) return null;
+      const st = (b.match(/(进行中|未开始|待开始|已结束|已停止)/) || [])[1] || '—';
+      const sold = (b.match(/秒杀件数\s*([0-9,]+)/) || [])[1] || '—';
+      return `状态 ${st} · 投放库存 ${stock} · 已卖 ${sold}`;
+    });
+    add('秒杀', 'seckillDetail', '秒杀详情（状态 / 投放库存 / 已卖）', !!detailHit, '详情抽屉文案（同源 iframe）', detailHit || '已投放后点闪电图标可见（当前不是详情态）');
+    add('秒杀', 'seckillRemain', '剩余（投放库存 − 秒杀件数）', !!detailHit, '投放库存 - 秒杀件数', detailHit ? '可算剩余，用于自动补充' : '需真实投放一次后可见');
+    const stopLeaf = inRoots((d) => leaf(d, /^(停止投放|停止秒杀|终止投放|取消投放)$/));
+    add('秒杀', 'seckillStop', '「停止投放」按钮', !!stopLeaf, 'text=停止投放', stopLeaf ? '可一键停止' : '秒杀进行中才出现');
+
+    out.good = out.items.filter((i) => i.found).length;
+    out.total = out.items.length;
+    out.frames = roots.length;
+    return out;
+  }
+
+  // 诊断用：dump 日期时间选择器的浮层结构（日历格 + 时分列的真实类名/坐标）
+  function probeCalendar() {
+    // 页面上有多个 date-time 相关容器（触发器/输入区/footer/真正的日历），
+    // 取「面积最大且含数字格」的那个才是日历面板。
+    const cands = Array.from(document.querySelectorAll('[class*="picker-popper"],[class*="date-time-range"],[class*="date-picker"]'))
+      .map((el) => ({ el, r: el.getBoundingClientRect() }))
+      .filter((x) => x.r.width > 200 && x.r.height > 120)
+      .sort((a, b) => b.r.width * b.r.height - a.r.width * a.r.height);
+    const popper = cands.length ? cands[0].el : null;
+    if (!popper) return { ok: false, reason: 'no-popper' };
+    const r = popper.getBoundingClientRect();
+    const cells = [];
+    popper.querySelectorAll('td,span,div,li').forEach((el) => {
+      if (el.children.length) return;
+      const t = norm(el.textContent);
+      if (!/^\d{1,2}$/.test(t)) return;
+      const b = el.getBoundingClientRect();
+      if (b.width < 4 || b.height < 4) return;
+      cells.push({
+        t,
+        tag: el.tagName.toLowerCase(),
+        cls: String(el.getAttribute('class') || '').slice(0, 70),
+        pcls: String((el.parentElement && el.parentElement.getAttribute('class')) || '').slice(0, 70),
+        gcls: String((el.parentElement && el.parentElement.parentElement && el.parentElement.parentElement.getAttribute('class')) || '').slice(0, 70),
+        x: Math.round(b.x + b.width / 2),
+        y: Math.round(b.y + b.height / 2)
+      });
+    });
+    return {
+      ok: true,
+      box: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+      count: cells.length,
+      cells: cells.slice(0, 160),
+      html: popper.outerHTML.replace(/<svg[\s\S]*?<\/svg>/g, '[S]').slice(0, 9000)
+    };
+  }
+
+  // 诊断用：列出当前所有可见的弹层/对话框（类名 + 文案 + 坐标）
+  function probeModals() {
+    const out = [];
+    const seen = new Set();
+    ['[class*="modal"]', '[class*="dialog"]', '[class*="drawer"]', '[class*="popconfirm"]'].forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 60 || r.height < 40) return;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return;
+        const key = String(el.getAttribute('class') || '') + '|' + Math.round(r.x) + ',' + Math.round(r.y);
+        if (seen.has(key)) return;
+        seen.add(key);
+        const norm2 = norm(el.textContent);
+        out.push({
+          cls: String(el.getAttribute('class') || '').slice(0, 100),
+          box: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+          text: norm2.slice(0, 160),
+          radios: el.querySelectorAll('label[class*="radio"]').length,
+          btns: Array.from(el.querySelectorAll('button')).map((b) => norm(b.textContent)).filter(Boolean).slice(0, 6)
+        });
+      });
+    });
+    return { ok: true, count: out.length, items: out.slice(0, 12), viewport: [window.innerWidth, window.innerHeight] };
+  }
+
+  // 诊断用：把秒杀抽屉里的按钮/标签全列出来（排查"找不到投放时长按钮"）
+  function seckillDump() {
+    // 只在秒杀抽屉所在的 iframe 里有效（否则 runInFrames 会命中主框架，dump 出一堆无关按钮）
+    if (!document.querySelector('.byted-input-number-input')) return { ok: false, reason: 'not-seckill-frame' };
+    const out = { ok: true, buttons: [], labels: [], spans: [], counts: { button: 0, label: 0 } };
+    // 时长/时间这类分段控件常是 div/span，专门捡出短文本节点
+    document.querySelectorAll('div,span').forEach((el) => {
+      if (el.children.length) return;
+      const t = norm(el.textContent);
+      if (!t || t.length > 8) return;
+      if (!/分钟|小时|自定义|立即|定时|开启|关闭|提交|取消/.test(t)) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4) return;
+      out.spans.push({ t, tag: el.tagName.toLowerCase(), cls: String(el.getAttribute('class') || '').slice(0, 70), w: Math.round(r.width) });
+    });
+    document.querySelectorAll('button').forEach((b) => {
+      const t = norm(b.textContent);
+      if (!t) return;
+      out.counts.button++;
+      const r = b.getBoundingClientRect();
+      out.buttons.push({ t: t.slice(0, 14), cls: String(b.className || '').slice(0, 70), dis: b.disabled, w: Math.round(r.width) });
+    });
+    document.querySelectorAll('label').forEach((l) => {
+      const t = norm(l.textContent);
+      if (!t) return;
+      out.counts.label++;
+      out.labels.push({ t: t.slice(0, 14), cls: String(l.className || '').slice(0, 50), checked: !!(l.querySelector('input') || {}).checked });
+    });
+    return out;
+  }
+
+  // 提交后可能弹二次确认（"确定投放？"）：找到可见弹层里的「确定/确认」就点掉
+  function seckillConfirm() {
+    const cands = Array.from(document.querySelectorAll('[class*="modal-content-inner"],[class*="modal-body"],[class*="popconfirm"]'))
+      .filter((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 120 || r.height < 50) return false;
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden';
+      });
+    for (const el of cands) {
+      const ok = Array.from(el.querySelectorAll('button')).find((b) => /^(确定|确认|确定投放|确认投放|确定提交)$/.test(norm(b.textContent)) && !b.disabled);
+      if (ok) {
+        const t = norm(ok.textContent);
+        ok.click();
+        return { ok: true, clicked: t };
+      }
+    }
+    return { ok: false, reason: 'no-confirm' };
+  }
+
+  // 读后台的提示条（成功/失败 toast），用于判断到底成没成
+  function readToast() {
+    const sels = ['[class*="toast"]', '[class*="Toast"]', '[class*="message"]', '[class*="Message"]', '[class*="notice"]', '[class*="Notification"]'];
+    const found = [];
+    for (const sel of sels) {
+      document.querySelectorAll(sel).forEach((el) => {
+        const t = norm(el.textContent);
+        if (!t || t.length > 80) return;
+        const r = el.getBoundingClientRect();
+        if (r.width < 40 || r.height < 10) return;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+        if (found.indexOf(t) < 0) found.push(t);
+      });
+    }
+    return { ok: found.length > 0, text: found.slice(0, 3).join(' / ') };
+  }
+
+  // 点「投放时长」档位（span 分段控件，DOM 点击最稳）
+  function seckillSetDuration(text) {
+    const want = String(text || '');
+    let hit = null;
+    document.querySelectorAll('span,div,button,label').forEach((el) => {
+      if (hit || el.children.length) return;
+      if (norm(el.textContent) !== want) return;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      hit = el;
+    });
+    if (!hit) return { ok: false, reason: 'not-found', want };
+    hit.click();
+    return { ok: true, text: want };
+  }
+
+  // 读「投放时间」两个按钮上的文案（验证日历是否真的选上了）
+  function seckillTimeText() {
+    const items = Array.from(document.querySelectorAll('.byted-date-time-range-picker-item'));
+    return { ok: items.length > 0, items: items.map((el) => norm(el.textContent)) };
+  }
+
+  // 诊断用：看某个元素的可见性/命中测试（排查"点了没反应"）
+  function inspectPoint(sel) {
+    const el = resolve(sel);
+    if (!el) return { ok: false, reason: 'not-found' };
+    const c = revealAndMeasure(el);
+    if (!c) return { ok: false, reason: 'no-center' };
+    const cs = getComputedStyle(el);
+    const hit = document.elementFromPoint(c.lx, c.ly);
+    const r = el.getBoundingClientRect();
+    return {
+      ok: true,
+      tag: el.tagName,
+      cls: String(el.getAttribute('class') || '').slice(0, 80),
+      display: cs.display, visibility: cs.visibility, opacity: cs.opacity, pointerEvents: cs.pointerEvents,
+      rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+      center: c,
+      hitTag: hit && hit.tagName,
+      hitCls: hit ? String(hit.getAttribute('class') || '').slice(0, 70) : '',
+      hasOnclick: !!el.onclick,
+      inner: el.outerHTML.replace(/<svg[\s\S]*?<\/svg>/g, '[S]').slice(0, 260)
+    };
+  }
+
+  // ---------- 评论条目 / 置顶（悬停才出现的操作） ----------
+  // 真机结构（2026-10-21）：#comment_all_tab_list_container > div[class*="item-"]，
+  // 条目里 昵称 [class*="item-name"]、内容 [class*="item-content"]；
+  // 「置顶」是在某条评论上悬停后才出现的操作（不在面板顶部），所以按文本定位那条再点。
+  function commentItemEls() {
+    const clsOf = (el) => String((el && el.getAttribute && el.getAttribute('class')) || '');
+    // 标签页（全部 / 高选品意向…）的类名里也有 item-，必须排掉，否则会拿标签当评论
+    const isTab = (el) => /tab/i.test(clsOf(el)) || !!(el.closest && el.closest('[class*="tab-bar"],[class*="tabBar"],[class*="tabs-"]'));
+    const hasBody = (el) => !!(el.querySelector && el.querySelector('[class*="item-content"],[class*="item-name"],[class*="item-txt"],[class*="content-"]'));
+
+    const list = document.querySelector('#comment_all_tab_list_container');
+    let items = [];
+    if (list) {
+      items = Array.from(list.children).filter((el) => /item-/.test(clsOf(el)) && !isTab(el));
+    }
+    if (!items.length) {
+      const wrap = document.querySelector('[class*="comment-wrap"]');
+      if (wrap) {
+        items = Array.from(wrap.querySelectorAll('[class*="item-"]')).filter((el) => !isTab(el) && hasBody(el));
+      }
+    }
+    // 兜底：直接按语义类（昵称/内容）反推条目
+    if (!items.length) {
+      const scope = document.querySelector('[class*="comment-wrap"]') || document;
+      const seeds = Array.from(scope.querySelectorAll('[class*="item-name"],[class*="item-content"]'));
+      items = Array.from(new Set(seeds.map((n) => n.parentElement))).filter(Boolean);
+    }
+    return items.filter((el) => {
+      const t = norm(el.textContent);
+      return t && t.length <= 220;
+    });
+  }
+
+  // 按文本找刚发的那条（取最后一条命中的：新评论在底部）
+  function commentItemByText(text) {
+    const want = norm(text).slice(0, 10);
+    const items = commentItemEls();
+    if (!items.length) return { ok: false, reason: 'no-comment-item', count: 0 };
+    const idx = (() => {
+      for (let i = items.length - 1; i >= 0; i--) {
+        if (want && norm(items[i].textContent).indexOf(want) >= 0) return i;
+      }
+      return -1;
+    })();
+    if (idx < 0) return { ok: false, reason: 'text-not-found', count: items.length, items: items.slice(-3).map((el) => norm(el.textContent).slice(0, 30)) };
+    const el = items[idx];
+    const c = centerOf(el);
+    if (!c) return { ok: false, reason: 'no-center' };
+    return { ok: true, index: idx, count: items.length, x: c.x, y: c.y, text: norm(el.textContent).slice(0, 40) };
+  }
+
+  // 读某条评论上能点的操作（悬停后才渲染）：置顶 / 取消置顶 / 其它图标
+  function commentItemActions(text) {
+    const want = norm(text).slice(0, 10);
+    const items = commentItemEls();
+    if (!items.length) return { ok: false, reason: 'no-comment-item' };
+    let el = null;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (!want || norm(items[i].textContent).indexOf(want) >= 0) { el = items[i]; break; }
+    }
+    if (!el) el = items[items.length - 1];
+    const scopes = [el].concat(el.parentElement ? [el.parentElement] : []);
+    const out = [];
+    scopes.forEach((scope) => {
+      scope.querySelectorAll('button,span,div,a,i,svg').forEach((n) => {
+        const cls = String(n.getAttribute('class') || '');
+        const t = norm(n.textContent);
+        const pinClass = /pin|ding/i.test(cls) && !/padding|pinyin/i.test(cls);
+        const pinText = /^(置顶|取消置顶|置顶评论|置顶该评论)$/.test(t);
+        // 只认「文字就是置顶的叶子节点」或「类名带 pin 的图标」。
+        // 父级容器（整条评论）的 textContent 里也含「置顶」两个字，不能当成按钮点。
+        if (!pinText && !pinClass) return;
+        if (!pinClass && n.children.length) return;
+        if (!pinText && t.length > 12) return;
+        const r = n.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) return;
+        const cs = getComputedStyle(n);
+        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+        const item = {
+          t: t.slice(0, 10),
+          tag: (n.tagName || '').toLowerCase(),
+          cls: cls.slice(0, 70),
+          x: Math.round(r.x + r.width / 2),
+          y: Math.round(r.y + r.height / 2)
+        };
+        if (!out.some((x) => x.x === item.x && x.y === item.y && x.t === item.t)) out.push(item);
+      });
+    });
+    // 顺带把这条评论上其它可见的短文字/小按钮也列出来（置顶可能叫别的名字或只有图标）
+    const others = [];
+    el.querySelectorAll('*').forEach((n) => {
+      if (n.children.length) return;
+      const t = norm(n.textContent);
+      if (!t || t.length > 10) return;
+      if (n.closest('[class*="item-name"],[class*="item-content"]')) return;
+      const r = n.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) return;
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+      others.push(t.slice(0, 10));
+    });
+    const iconCls = [];
+    el.querySelectorAll('svg,[class*="icon"],[class*="Icon"]').forEach((n) => {
+      const r = n.getBoundingClientRect();
+      if (r.width < 4) return;
+      const cs = getComputedStyle(n);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return;
+      const c = String(n.getAttribute('class') || '').split(' ')[0];
+      if (c) iconCls.push(c);
+    });
+    return {
+      ok: out.length > 0,
+      actions: out.slice(0, 8),
+      others: Array.from(new Set(others)).slice(0, 10),
+      icons: Array.from(new Set(iconCls)).slice(0, 8),
+      itemText: norm(el.textContent).slice(0, 40)
+    };
+  }
+
+  // 评论条目上「悬停才出现的操作图标」。
+  // 真机结构（2026-10-22 实测）：div.item-* > div.hover-button-* > div.icon-* > span > svg
+  //   第 1 个图标 = 图钉 = 置顶（点了后台提示「置顶审核中，审核通过后将在用户侧展示1分钟」）
+  //   第 2 个图标 = 气泡 = 回复
+  // 图标没有文字也没有 aria-label，只能按位置识别；这里把每个图标的坐标都返回，由上层取第 1 个。
+  function commentHoverIcons(text) {
+    const items = commentItemEls();
+    if (!items.length) return { ok: false, reason: 'no-comment-item' };
+    const want = norm(text).slice(0, 10);
+    let el = null;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (!want || norm(items[i].textContent).indexOf(want) >= 0) { el = items[i]; break; }
+    }
+    if (!el) el = items[items.length - 1];
+    const box = el.querySelector('[class*="hover-button"]');
+    if (!box) return { ok: false, reason: 'no-hover-button', itemText: norm(el.textContent).slice(0, 40) };
+    const icons = Array.from(box.children).map((c, i) => {
+      const r = c.getBoundingClientRect();
+      return {
+        i,
+        cls: String(c.getAttribute('class') || '').slice(0, 40),
+        x: Math.round(r.x + r.width / 2),
+        y: Math.round(r.y + r.height / 2),
+        w: Math.round(r.width),
+        h: Math.round(r.height)
+      };
+    }).filter((x) => x.w > 2 && x.h > 2);
+    return {
+      ok: icons.length > 0,
+      icons,
+      // 第一个默认当置顶（真机确认），上层可再按提示文字纠正
+      pin: icons[0] || null,
+      itemText: norm(el.textContent).slice(0, 40),
+      count: icons.length
+    };
+  }
+
+  // 读最后一条评论（置顶自检用：悬停它看能点出什么）
+  function commentLastItem() {
+    const items = commentItemEls();
+    if (!items.length) return { ok: false, reason: 'no-comment-item' };
+    const el = items[items.length - 1];
+    const c = centerOf(el);
+    if (!c) return { ok: false, reason: 'no-center' };
+    return { ok: true, count: items.length, x: c.x, y: c.y, text: norm(el.textContent).slice(0, 60), cls: String(el.getAttribute('class') || '').slice(0, 60) };
+  }
+
+  // 装载时就装上"听筒"：中控台一直在轮询，room_id 从这些 URL 里现成可取。
+  // 不做任何拦截/改写，只是把 URL 抄一份，页面功能不受影响。
+  try { installSniffer(); } catch (e) {}
+
+  window.__TP = {
+    version: '0.9',
+    click, clickIn, type, pressEnter, readList, count, probe, replyTo, resolve, resolveAll, isVisible, norm,
+    parseSel, scan, cssPath, attrSel, goodsList, locate, locateIn, textIn, closeAnyPopup,
+    reveal, revealIn, revealEl, loadAll, markInject, humanInfo, pointOk, apiIds, apiComment,
+    apiReq, apiRoomStats, apiCardStats, apiShelf, apiLiveStatus, apiSwitchCard, officialBusy,
+    seckillScan, seckillForm, seckillSetNum, seckillSetCustomDur, seckillClose, seckillPickRange, seckillTimeText, seckillDump, seckillSetDuration, seckillConfirm, readToast,
+    seckillFindEl, seckillClickText, seckillStatus, seckillDetail,
+    commentItemByText, commentItemActions, commentLastItem, commentHoverIcons,
+    couponPanelRows, couponRowBtn, couponRows, couponModalState, couponPick, autoDetect, probeCalendar, probeModals, inspectPoint,
+    sleep, rand,
+    startPick, stopPick,
+    pickState: () => ({ picking, picked }),
+    consumePick: () => { const p = picked; picked = null; return p; }
+  };
+})();
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>

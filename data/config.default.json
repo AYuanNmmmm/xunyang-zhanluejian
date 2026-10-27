@@ -1,0 +1,135 @@
+{
+  "version": 5,
+  "site": "https://eos.douyin.com/livesite/live/current",
+  "dryRun": false,
+  "stats": {
+    "popup": 0,
+    "comment": 0,
+    "coupon": 0,
+    "seckill": 0,
+    "refresh": 0,
+    "fail": 0,
+    "since": ""
+  },
+  "lastSync": null,
+  "engine": {
+    "mode": "background",
+    "prewarm": true,
+    "refreshMin": 30,
+    "refreshOnIdle": true
+  },
+  "sched": {
+    "humanYield": true,
+    "humanYieldSec": 3,
+    "stepYieldMs": 260
+  },
+  "view": {
+    "zoom": 1,
+    "fit": false,
+    "favZoom": 0,
+    "cols": [],
+    "siteKey": ""
+  },
+  "humanize": {
+    "enabled": true,
+    "jitterPct": 25,
+    "typeMin": 55,
+    "typeMax": 175,
+    "microPauseChance": 0.06,
+    "actionFloorMs": 900,
+    "longPauseChance": 0.08,
+    "longPauseMin": 1500,
+    "longPauseMax": 4500
+  },
+  "selectors": {
+    "card": "xpath=(//*[@id=\"live-card-list\"]//div[@role=\"button\"][@aria-label])[{{n}}]",
+    "cardAction": "class=talking-btn\ntext=讲解",
+    "commentInput": "textarea[placeholder*=\"输入评论\"]\n[class*=\"comment-wrap\"] textarea",
+    "sendButton": "text=发送\n.button-Wc1yvW",
+    "pinButton": "text=置顶",
+    "commentItem": "#comment_all_tab_list_container > div[class*=\"item-\"]",
+    "commentText": "[class*=\"item-content\"]",
+    "commentUser": "[class*=\"item-name\"]",
+    "viewerItem": "",
+    "viewerName": "",
+    "orderToast": "",
+    "couponEntry": "text=优惠券",
+    "couponItem": "[class*=\"okee-current-live-Table-Row\"]",
+    "couponGrantBtn": "text=发放优惠券",
+    "couponCountInput": "",
+    "couponConfirmBtn": "text=确定发放",
+    "couponDurationBtn": "text=1分钟",
+    "replyButton": ""
+  },
+  "goods": {
+    "list": [],
+    "pickedAt": "",
+    "autoRefresh": true,
+    "refreshSec": 90
+  },
+  "popup": {
+    "selected": [],
+    "mode": "seq",
+    "showSec": 15,
+    "hideSec": 4,
+    "rounds": 0,
+    "timeFrom": "",
+    "timeTo": "",
+    "keep": {
+      "refreshSec": 6,
+      "offMs": 600
+    }
+  },
+  "comment": {
+    "activeGroupId": null,
+    "useApi": true,
+    "userId": "",
+    "groups": []
+  },
+  "coupon": {
+    "list": [],
+    "scannedAt": "",
+    "selected": [],
+    "name": "",
+    "count": 10,
+    "durationMin": "1",
+    "times": 0,
+    "intervalSec": 300,
+    "timeFrom": "",
+    "timeTo": ""
+  },
+  "seckill": {
+    "cards": [],
+    "mode": "sched",
+    "startOffsetMin": 2,
+    "durationMin": 30,
+    "startDate": "",
+    "startH": "00",
+    "startM": "00",
+    "endDate": "",
+    "endH": "23",
+    "endM": "59",
+    "startAt": "",
+    "endAt": "",
+    "stock": 50,
+    "limit": 0,
+    "countdown": false,
+    "monitor": false,
+    "monitorSec": 60,
+    "minStock": 10,
+    "addQty": 50,
+    "replenishTo": 50
+  },
+  "data": {
+    "autoRefresh": true,
+    "refreshSec": 10,
+    "lastAt": "",
+    "hideZero": false
+  },
+  "api": {
+    "goods": true,
+    "switchCard": true,
+    "keepAlive": true,
+    "drawerYield": true
+  }
+}
