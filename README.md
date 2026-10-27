@@ -33,6 +33,8 @@
 xattr -cr /Applications/巡洋战略舰.app
 ```
 
+**下载现成包（Windows x64）**：到 [Releases](https://github.com/AYuanNmmmm/xunyang-zhanluejian/releases) 下 `xunyang-zhanluejian-windows-x64-v0.10.8-setup.exe`，双击安装，安装向导可自选目录（中文、桌面与开始菜单快捷方式）。首次运行若被 SmartScreen 拦，点「更多信息 → 仍要运行」（未做代码签名）。
+
 **从源码跑**：
 
 ```bash
@@ -108,6 +110,7 @@ screenshots/                      README 用图（演示数据）
 - **强依赖抖音后台的 DOM**。class 是随机哈希、结构随版本变；改版后需要重新跑「结构分析」并校准选择器，这是这类工具的通病，不是 bug。
 - **只在开播状态下功能完整**。未开播时部分接口/元素不存在，日志会提示「后台页启动失败…将在后台自动重试」，开播后自动消失。
 - **macOS 包只有 arm64**（Apple 芯片）。Intel 机器请用源码版或自行 `bash scripts/build-mac.sh` 出 x64。
+- **Windows 安装包是 10-23 构建的 0.10.8 定版**，不含 10-26 那次 macOS 闪退修复里同样影响 Windows 的两处改动（健康探针、Electron 版本）。不影响启动，但下播后后台页可能自动刷新一次；要完全对齐源码请自行 `npm run dist:win`。
 - **不做 Apple 签名**，所以首次打开要手动放行。
 - 秒杀的「剩余数量自动补充」需要先真实投放一次后台才显示「剩余」文案，属后台行为限制。
 
